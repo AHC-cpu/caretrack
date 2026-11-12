@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CareTrack · Zikku Customer Care</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --navy:#1f2d4d; --navy2:#2b3d63; --bg:#eef2f6; --card:#ffffff; --line:#d8e0ea; --line2:#e9eef4;
+  --text:#1e2a3b; --muted:#66748a; --accent:#3b6ea5; --accent2:#2f5a88; --accentbg:#e6eef7;
+  --green:#2e8b57; --greenbg:#e5f4ec; --amber:#b7791f; --amberbg:#fdf3e1; --red:#c0392b; --redbg:#fbe7e5;
+  --purple:#6b4fa3; --purplebg:#efe9f8; --grey:#7b8794; --greybg:#eef0f3;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+button{font-family:inherit;font-size:13px;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:13px;color:var(--text)}
+a{color:var(--accent)}
+header{background:var(--navy);color:#fff;position:sticky;top:0;z-index:30;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.hbar{display:flex;align-items:center;gap:16px;padding:10px 20px;flex-wrap:wrap}
+.brand{font-weight:700;font-size:18px;letter-spacing:.3px}
+.brand small{display:block;font-weight:400;font-size:11px;opacity:.7;letter-spacing:.2px}
+nav{display:flex;gap:2px;flex-wrap:wrap;flex:1}
+nav button{background:transparent;border:0;color:#c9d3e4;padding:8px 14px;border-radius:6px;font-weight:600}
+nav button:hover{background:var(--navy2);color:#fff}
+nav button.active{background:#fff;color:var(--navy)}
+.hright{display:flex;align-items:center;gap:10px;font-size:12px;color:#c9d3e4}
+.hright .chip{background:var(--navy2);padding:5px 10px;border-radius:14px}
+.hbtn{background:var(--navy2);color:#fff;border:1px solid #42557f;border-radius:6px;padding:6px 10px}
+.hbtn:hover{background:#364b78}
+main{padding:18px 20px 60px;max-width:1500px;margin:0 auto}
+.tab{display:none}.tab.active{display:block}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.toolbar .grow{flex:1}
+.inp,select.inp{border:1px solid var(--line);border-radius:6px;padding:7px 9px;background:#fff;min-width:0}
+.inp:focus{outline:2px solid #bcd0e8;border-color:var(--accent)}
+.btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:7px 12px;font-weight:600;color:var(--text)}
+.btn:hover{background:#f5f8fb}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent2)}
+.btn.danger{color:var(--red);border-color:#efc2bd}
+.btn.green{background:var(--green);border-color:var(--green);color:#fff}
+.btn.sm{padding:4px 9px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600}
+.kpi .v{font-size:24px;font-weight:700;margin-top:4px}
+.kpi.red .v{color:var(--red)}.kpi.amber .v{color:var(--amber)}.kpi.green .v{color:var(--green)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.card h3{margin:0;padding:12px 14px;font-size:14px;border-bottom:1px solid var(--line2);background:#f8fafc}
+.card .body{padding:12px 14px}
+.tablewrap{overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%}
+th{background:#f3f6fa;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0}
+td{padding:8px 10px;border-bottom:1px solid var(--line2);vertical-align:top}
+tr.click{cursor:pointer}tr.click:hover td{background:#f6f9fc}
+.empty{padding:30px;text-align:center;color:var(--muted)}
+.pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;background:var(--greybg);color:var(--grey)}
+.p-blue{background:var(--accentbg);color:var(--accent2)}.p-green{background:var(--greenbg);color:var(--green)}
+.p-amber{background:var(--amberbg);color:var(--amber)}.p-red{background:var(--redbg);color:var(--red)}
+.p-purple{background:var(--purplebg);color:var(--purple)}.p-grey{background:var(--greybg);color:var(--grey)}
+.muted{color:var(--muted)}.small{font-size:12px}.nowrap{white-space:nowrap}.b{font-weight:600}
+.clip{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* login */
+#login{max-width:460px;margin:70px auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:30px;text-align:center}
+#login h1{margin:0 0 6px;color:var(--navy)}
+#login p{color:var(--muted)}
+/* drawer */
+#drawerBack{position:fixed;inset:0;background:rgba(20,30,50,.35);z-index:40;display:none}
+#drawer{position:fixed;top:0;right:0;bottom:0;width:640px;max-width:100%;background:var(--bg);z-index:41;transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column;box-shadow:-4px 0 18px rgba(0,0,0,.15)}
+#drawer.open{transform:none}
+.dhead{background:var(--navy);color:#fff;padding:14px 18px;display:flex;align-items:center;gap:10px}
+.dhead .t{font-size:16px;font-weight:700}
+.dhead .x{margin-left:auto;background:transparent;border:0;color:#fff;font-size:22px;line-height:1}
+.dbody{flex:1;overflow:auto;padding:14px 18px}
+.dfoot{padding:10px 18px;background:#fff;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap}
+.sec{background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:12px}
+.sec h4{margin:0;padding:10px 14px;font-size:13px;border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:8px}
+.sec .in{padding:12px 14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+.grid .full{grid-column:1/-1}
+.f label{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:3px;text-transform:uppercase;letter-spacing:.3px}
+.f .inp{width:100%}
+.f textarea.inp{min-height:64px;resize:vertical}
+.chk{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
+.note{border-radius:8px;padding:9px 12px;font-size:13px;margin:4px 0 10px}
+.n-info{background:var(--accentbg);color:var(--accent2)}.n-ok{background:var(--greenbg);color:var(--green)}
+.n-warn{background:var(--amberbg);color:#8a5a12}.n-bad{background:var(--redbg);color:var(--red)}
+.steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.step{font-size:11px;font-weight:600;padding:4px 9px;border-radius:12px;background:var(--greybg);color:var(--grey)}
+.step.done{background:var(--greenbg);color:var(--green)}
+.step.now{background:var(--accentbg);color:var(--accent2);outline:1px solid #b9cde6}
+.tl{border-left:2px solid var(--line);margin-left:6px;padding-left:12px}
+.tl .item{margin-bottom:10px;position:relative}
+.tl .item:before{content:"";position:absolute;left:-18px;top:5px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.tl .item.sys:before{background:var(--grey)}
+.tl .meta{font-size:11px;color:var(--muted)}
+.casebox{border:1px solid var(--line2);border-radius:8px;padding:9px 11px;margin-bottom:8px;background:#fafcfe}
+/* modal */
+#modalBack{position:fixed;inset:0;background:rgba(20,30,50,.45);z-index:50;display:none;align-items:flex-start;justify-content:center;padding:40px 12px;overflow:auto}
+#modal{background:#fff;border-radius:12px;width:640px;max-width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+#modal .mh{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700;font-size:15px;display:flex}
+#modal .mh .x{margin-left:auto;background:transparent;border:0;font-size:20px;line-height:1;color:var(--muted)}
+#modal .mb{padding:14px 18px;max-height:70vh;overflow:auto}
+#modal .mf{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 16px;border-radius:8px;z-index:60;display:none;max-width:90%}
+#toast.err{background:var(--red)}
+#busy{position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),#8fb3dc,var(--accent));background-size:200% 100%;animation:mv 1s linear infinite;z-index:70;display:none}
+@keyframes mv{to{background-position:-200% 0}}
+/* dashboard */
+.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
+.bar{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px}
+.bar .lab{width:150px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .track{flex:1;background:var(--line2);border-radius:4px;height:14px;overflow:hidden}
+.bar .fill{height:100%;background:var(--accent);border-radius:4px}
+.bar .num{width:44px;text-align:right;font-weight:600}
+.tpl{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.tpl pre{white-space:pre-wrap;font-family:inherit;margin:0;font-size:13px;color:#3a4759;max-height:120px;overflow:hidden}
+.tplgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px}
+.vars code{background:var(--accentbg);padding:1px 5px;border-radius:4px;margin:2px;display:inline-block;font-size:12px}
+.linkchips{display:flex;gap:6px;flex-wrap:wrap}
+@media (max-width:700px){
+  .grid{grid-template-columns:1fr}
+  main{padding:12px 10px 60px}
+  .hbar{padding:10px 12px}
+}
+</style>
+</head>
+<body>
+<div id="busy"></div>
+<header>
+  <div class="hbar">
+    <div class="brand">CareTrack<small>Zikku customer care</small></div>
+    <nav id="nav" hidden>
+      <button data-tab="complaints" class="active">Complaints</button>
+      <button data-tab="cases">Courier Cases</button>
+      <button data-tab="orders">Order Lookup</button>
+      <button data-tab="templates">Reply Templates</button>
+      <button data-tab="dashboard">Dashboard</button>
+      <button data-tab="settings">Settings</button>
+    </nav>
+    <div class="hright" id="hright" hidden>
+      <span class="chip" id="syncChip">Orders synced: never</span>
+      <button class="hbtn" onclick="refreshAll()">↻ Refresh</button>
+      <span id="userChip"></span>
+    </div>
+  </div>
+</header>
+
+<div id="login">
+  <h1>CareTrack</h1>
+  <p>Track complaints, courier cases and replies for the Zikku Shopify store.</p>
+  <button class="btn primary" id="signin" onclick="signIn()" disabled>Loading Google sign-in…</button>
+  <p class="small" id="loginMsg"></p>
+</div>
+
+<main id="app" hidden>
+  <!-- COMPLAINTS -->
+  <section class="tab active" id="tab-complaints">
+    <div class="kpis" id="cKpis"></div>
+    <div class="toolbar">
+      <input class="inp grow" id="cSearch" placeholder="Search ticket, name, phone, order no, AWB…" oninput="renderComplaints()">
+      <select class="inp" id="cStatus" onchange="renderComplaints()"></select>
+      <select class="inp" id="cIssue" onchange="renderComplaints()"></select>
+      <select class="inp" id="cChannel" onchange="renderComplaints()"></select>
+      <select class="inp" id="cCourier" onchange="renderComplaints()"></select>
+      <button class="btn primary" onclick="openNewTicket()">+ New complaint</button>
+    </div>
+    <div class="tablewrap" id="cTable"></div>
+  </section>
+
+  <!-- COURIER CASES -->
+  <section class="tab" id="tab-cases">
+    <div class="kpis" id="ccKpis"></div>
+    <div class="toolbar">
+      <input class="inp grow" id="ccSearch" placeholder="Search case, ticket, order, AWB…" oninput="renderCases()">
+      <select class="inp" id="ccCourier" onchange="renderCases()"></select>
+      <select class="inp" id="ccStatus" onchange="renderCases()">
+        <option value="Open">Open cases</option><option value="Closed">Closed cases</option><option value="">All cases</option>
+      </select>
+      <select class="inp" id="ccType" onchange="renderCases()"></select>
+      <button class="btn" onclick="exportCases()">⬇ Export open cases (Excel)</button>
+    </div>
+    <div class="linkchips" id="ccSheetLinks" style="margin-bottom:10px"></div>
+    <div class="tablewrap" id="ccTable"></div>
+  </section>
+
+  <!-- ORDERS -->
+  <section class="tab" id="tab-orders">
+    <div class="kpis" id="oKpis"></div>
+    <div class="toolbar">
+      <input class="inp grow" id="oSearch" placeholder="Search order no, customer, phone, AWB…" oninput="renderOrders()">
+      <select class="inp" id="oView" onchange="renderOrders()">
+        <option value="all">All orders</option>
+        <option value="problem">Problem orders only</option>
+      </select>
+    </div>
+    <div class="tablewrap" id="oTable"></div>
+  </section>
+
+  <!-- TEMPLATES -->
+  <section class="tab" id="tab-templates">
+    <div class="toolbar">
+      <input class="inp grow" id="tSearch" placeholder="Search templates…" oninput="renderTemplates()">
+      <select class="inp" id="tFlow" onchange="renderTemplates()"></select>
+      <select class="inp" id="tLang" onchange="renderTemplates()">
+        <option value="">All languages</option><option>English</option><option>Hindi</option>
+      </select>
+      <button class="btn primary" onclick="editTemplate()">+ New template</button>
+    </div>
+    <div class="note n-info vars" id="varHelp"></div>
+    <div class="tplgrid" id="tGrid"></div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="tab" id="tab-dashboard">
+    <div class="toolbar">
+      <span class="b">Period</span>
+      <select class="inp" id="dPeriod" onchange="renderDashboard()">
+        <option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="7">Last 7 days</option><option value="0">All time</option>
+      </select>
+      <span class="muted small">All numbers are counted from the tickets and courier cases in your Google Sheet.</span>
+    </div>
+    <div class="kpis" id="dKpis"></div>
+    <div class="dgrid" id="dGrid"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="tab" id="tab-settings">
+    <div class="dgrid">
+      <div class="card">
+        <h3>General settings</h3>
+        <div class="body" id="setForm"></div>
+      </div>
+      <div class="card">
+        <h3>Connection</h3>
+        <div class="body small" id="connInfo"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <h3 style="display:flex;align-items:center">Courier partners <button class="btn sm primary" style="margin-left:auto" onclick="editCourier()">+ Add courier</button></h3>
+      <div class="body" style="padding:0" id="courierTable"></div>
+    </div>
+  </section>
+</main>
+
+<div id="drawerBack" onclick="closeDrawer()"></div>
+<aside id="drawer"></aside>
+<div id="modalBack"><div id="modal"></div></div>
+<div id="toast"></div>
+
+<script>
+/* ================= CONFIG ================= */
+const APP_CONFIG = {
+  CLIENT_ID: '384819479202-rrct383pmcd94an9jrjdlco084nv7gil.apps.googleusercontent.com',
+  SHEET_ID: '1eCSbiNvz214r8MSqr8sPw_z-ctjP9XA9m_V2EtH97T8'
+};
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email';
+const BASE = () => `https://sheets.googleapis.com/v4/spreadsheets/${APP_CONFIG.SHEET_ID}`;
+
+/* Column order is append-only. Never reorder; add new fields at the end. */
+const SCHEMA = {
+  Tickets: ['Ticket_ID','Created_At','Created_By','Channel','Customer_Name','Phone','Email','Order_No','Product','Order_Value',
+    'Issue_Type','Priority','Status','Assigned_To','Courier','AWB','Delivered_On','Courier_Outcome','Reship_Offered','Customer_Choice',
+    'Reship_AWB','Follow_Up_Date','Return_Approved','Return_Window_Override','Product_Price','Pickup_Cost','Pickup_Decision','Pickup_AWB',
+    'Item_Received','Item_Received_On','Refund_Amount','Refund_Status','Refund_Date','Refund_Mode','Refund_Ref','Resolution_Summary',
+    'Closed_At','Updated_At','Updated_By'],
+  Ticket_Notes: ['Note_ID','Ticket_ID','Timestamp','By','Type','Note'],
+  Courier_Cases: ['Case_ID','Ticket_ID','Courier','Case_Type','Order_No','AWB','Customer_Name','Phone','Pickup_Address','City','Pincode',
+    'Our_Request','Raised_On','Raised_By','Case_Status','Closed_On','Courier_Status','Courier_Update','Courier_Ref','Expected_Date',
+    'Courier_Updated_On','First_Response_On','Last_Pulled_Hash'],
+  Orders: ['Order_ID','Order_No','Order_Date','Customer_Name','Phone','Email','Address','City','State','Pincode','Items','SKUs',
+    'Order_Value','Payment_Type','Payment_Gateway','Financial_Status','Fulfillment_Status','Courier_Company','AWB','Tracking_URL',
+    'Shipment_Status','Shipped_On','Delivered_On','Cancelled_On','Shopify_Updated_At','Synced_At'],
+  Templates: ['Template_ID','Name','Flow','Language','Body'],
+  Couriers: ['Courier','Match_Keywords','Contact_Person','Email','Phone','Default_Pickup_Cost','Sheet_ID','Sheet_URL','Active'],
+  Settings: ['Key','Value','Notes']
+};
+const ID_FIELD = {Tickets:'Ticket_ID',Ticket_Notes:'Note_ID',Courier_Cases:'Case_ID',Orders:'Order_ID',Templates:'Template_ID',Couriers:'Courier',Settings:'Key'};
+
+const ISSUE = {DELAY:'Not Received / Delay', DISLIKE:"Didn't Like Product", WRONG:'Wrong Product Sent', OTHER:'Other'};
+const ISSUES = Object.values(ISSUE);
+const STATUSES = ['New','In Progress','Waiting on Courier','Waiting on Customer','Resolved','Closed'];
+const CHANNELS = ['WhatsApp','Email','Instagram','Call','Other'];
+const PRIORITIES = ['Normal','High','Urgent'];
+const CASE_TYPES = ['Delay / Not Delivered','Reverse Pickup'];
+const COURIER_STATUSES = ['','Investigating','In transit','Out for delivery','Delivered','Lost','RTO initiated','Pickup scheduled','Pickup done','Pickup failed','Other'];
+const OUTCOMES = ['','Courier checking','Delivered','Customer asked to wait','Parcel lost','RTO / Returned to us'];
+const REFUND_STATUS = ['','Not needed','Pending','Done'];
+const REFUND_MODES = ['','Original payment (Shopify)','UPI','Bank transfer','Store credit / coupon'];
+
+const DEFAULT_SETTINGS = [
+  ['STORE_NAME','Zikku','Used in reply templates as {{store}}'],
+  ['SIGNATURE','Team Zikku','Used in reply templates as {{signature}}'],
+  ['DELAY_DAYS','7','Shipped orders not delivered after this many days show as problem orders'],
+  ['RETURN_WINDOW_DAYS','2','Days after delivery to accept a "didn\'t like it" return'],
+  ['TICKET_AMBER_HOURS','24','Open ticket turns amber after this many hours'],
+  ['TICKET_RED_HOURS','48','Open ticket turns red after this many hours'],
+  ['COURIER_NO_UPDATE_HOURS','48','Courier case turns red if no courier update for this many hours'],
+  ['TEAM','','Comma separated team names, used for "Assigned to"'],
+  ['ORDER_SYNC_DAYS_BACK','60','First Shopify sync pulls orders from this many days back (Apps Script)'],
+  ['LAST_ORDER_SYNC','','Written by Apps Script'],
+  ['LAST_COURIER_SYNC','','Written by Apps Script']
+];
+const DEFAULT_COURIERS = [
+  {Courier:'Ekart',Match_Keywords:'ekart, flipkart',Active:'Yes'},
+  {Courier:'Bigship',Match_Keywords:'bigship',Active:'Yes'},
+  {Courier:'Shiprocket',Match_Keywords:'shiprocket',Active:'Yes'}
+];
+const DEFAULT_TEMPLATES = [
+ ['Acknowledge complaint','All','English',"Hi {{name}}, thank you for reaching out to {{store}}. We've noted your concern about order {{order_no}} under reference {{ticket_id}}. We'll check and get back to you within 24 hours.\n\n{{signature}}"],
+ ['Acknowledge complaint','All','Hindi',"नमस्ते {{name}}, {{store}} से संपर्क करने के लिए धन्यवाद। आपके ऑर्डर {{order_no}} की शिकायत हमने रेफरेंस {{ticket_id}} पर दर्ज कर ली है। हम 24 घंटे के अंदर आपको अपडेट देंगे।\n\n{{signature}}"],
+ ['Ask for photos','All','English',"Hi {{name}}, sorry about this. Could you please share a few clear photos of the product and the outer packet (with the label visible) for order {{order_no}}? It helps us sort this out faster.\n\n{{signature}}"],
+ ['Ask for photos','All','Hindi',"नमस्ते {{name}}, असुविधा के लिए खेद है। कृपया ऑर्डर {{order_no}} के प्रोडक्ट और बाहरी पैकेट (लेबल सहित) की कुछ साफ फोटो भेज दें, ताकि हम जल्दी समाधान कर सकें।\n\n{{signature}}"],
+ ['Delay: checking with courier',ISSUE.DELAY,'English',"Hi {{name}}, sorry your order {{order_no}} hasn't reached you yet. We've raised a case with {{courier}} (AWB {{awb}}) and asked them for an urgent update. We'll message you as soon as we hear back.\n\nTrack here: {{tracking_link}}\n\n{{signature}}"],
+ ['Delay: checking with courier',ISSUE.DELAY,'Hindi',"नमस्ते {{name}}, खेद है कि आपका ऑर्डर {{order_no}} अभी तक नहीं पहुँचा। हमने {{courier}} (AWB {{awb}}) के साथ केस दर्ज करके जल्द अपडेट माँगा है। जवाब आते ही हम आपको बताएँगे।\n\nट्रैकिंग: {{tracking_link}}\n\n{{signature}}"],
+ ['Delay: please wait',ISSUE.DELAY,'English',"Hi {{name}}, we heard back from {{courier}} about order {{order_no}}. Your parcel is on its way and they expect to deliver it by {{expected_date}}. Please keep your phone reachable so the delivery person can call you.\n\n{{signature}}"],
+ ['Delay: please wait',ISSUE.DELAY,'Hindi',"नमस्ते {{name}}, {{courier}} ने ऑर्डर {{order_no}} के बारे में बताया है कि पार्सल रास्ते में है और {{expected_date}} तक डिलीवर हो जाएगा। कृपया अपना फोन चालू रखें ताकि डिलीवरी वाले आपसे संपर्क कर सकें।\n\n{{signature}}"],
+ ['Lost parcel: re-ship or refund?',ISSUE.DELAY,'English',"Hi {{name}}, we're really sorry. {{courier}} has confirmed that the parcel for order {{order_no}} could not be delivered. We can send you a fresh parcel at no extra cost, or refund the full amount. Please tell us which you'd prefer.\n\n{{signature}}"],
+ ['Lost parcel: re-ship or refund?',ISSUE.DELAY,'Hindi',"नमस्ते {{name}}, हमें बहुत खेद है। {{courier}} ने बताया है कि ऑर्डर {{order_no}} का पार्सल डिलीवर नहीं हो पाया। हम बिना किसी अतिरिक्त शुल्क के नया पार्सल भेज सकते हैं या पूरा रिफंड कर सकते हैं। कृपया बताएँ आप क्या चाहेंगे।\n\n{{signature}}"],
+ ['New parcel sent','All','English',"Hi {{name}}, we've sent a new parcel for order {{order_no}}. The new tracking number is {{reship_awb}}. Thank you for your patience.\n\n{{signature}}"],
+ ['New parcel sent','All','Hindi',"नमस्ते {{name}}, हमने ऑर्डर {{order_no}} के लिए नया पार्सल भेज दिया है। नया ट्रैकिंग नंबर {{reship_awb}} है। आपके धैर्य के लिए धन्यवाद।\n\n{{signature}}"],
+ ['Return pickup arranged',ISSUE.DISLIKE,'English',"Hi {{name}}, we've arranged a return pickup for order {{order_no}}. The courier will contact you in the next 2-3 working days. Please keep the product unused and in its original packing. Your refund will be processed once the item reaches us.\n\n{{signature}}"],
+ ['Return pickup arranged',ISSUE.DISLIKE,'Hindi',"नमस्ते {{name}}, हमने ऑर्डर {{order_no}} के लिए रिटर्न पिकअप बुक कर दिया है। कूरियर अगले 2-3 कार्य दिवसों में आपसे संपर्क करेगा। कृपया प्रोडक्ट बिना इस्तेमाल किए, ओरिजिनल पैकिंग में रखें। प्रोडक्ट हमारे पास पहुँचते ही रिफंड कर दिया जाएगा।\n\n{{signature}}"],
+ ['Return: outside window',ISSUE.DISLIKE,'English',"Hi {{name}}, thank you for your message. Our return window is {{return_days}} days from delivery, and order {{order_no}} was delivered on {{delivered_on}}, so we can't accept a return this time. If something is wrong with the product itself, please share photos and we'll look into it.\n\n{{signature}}"],
+ ['Return: outside window',ISSUE.DISLIKE,'Hindi',"नमस्ते {{name}}, आपके संदेश के लिए धन्यवाद। हमारी रिटर्न अवधि डिलीवरी से {{return_days}} दिन की है, और ऑर्डर {{order_no}} {{delivered_on}} को डिलीवर हुआ था, इसलिए इस बार रिटर्न संभव नहीं है। अगर प्रोडक्ट में कोई खराबी है तो फोटो भेजें, हम ज़रूर देखेंगे।\n\n{{signature}}"],
+ ['Refund processed','All','English',"Hi {{name}}, we've processed your refund of ₹{{refund_amount}} for order {{order_no}}. It usually shows in your account within 5-7 working days, depending on your bank.\n\n{{signature}}"],
+ ['Refund processed','All','Hindi',"नमस्ते {{name}}, ऑर्डर {{order_no}} के लिए ₹{{refund_amount}} का रिफंड कर दिया गया है। बैंक के अनुसार यह आमतौर पर 5-7 कार्य दिवसों में आपके खाते में आ जाता है।\n\n{{signature}}"],
+ ['Wrong product: apology',ISSUE.WRONG,'English',"Hi {{name}}, we're sorry you received the wrong product in order {{order_no}}. That's our mistake. Could you share a photo of what you received? We'll fix this right away.\n\n{{signature}}"],
+ ['Wrong product: apology',ISSUE.WRONG,'Hindi',"नमस्ते {{name}}, हमें खेद है कि ऑर्डर {{order_no}} में आपको गलत प्रोडक्ट मिला। यह हमारी गलती है। कृपया जो प्रोडक्ट मिला उसकी फोटो भेजें, हम तुरंत इसे ठीक करेंगे।\n\n{{signature}}"],
+ ['Wrong product: no need to return',ISSUE.WRONG,'English',"Hi {{name}}, we've processed a refund of ₹{{refund_amount}} for order {{order_no}}. You don't need to send back the item you received. Sorry again for the mix-up.\n\n{{signature}}"],
+ ['Wrong product: no need to return',ISSUE.WRONG,'Hindi',"नमस्ते {{name}}, ऑर्डर {{order_no}} के लिए ₹{{refund_amount}} का रिफंड कर दिया गया है। आपको मिला हुआ प्रोडक्ट वापस भेजने की ज़रूरत नहीं है। गड़बड़ी के लिए फिर से माफ़ी।\n\n{{signature}}"],
+ ['Wrong product: pickup arranged',ISSUE.WRONG,'English',"Hi {{name}}, we've arranged a pickup of the wrong item from order {{order_no}}. The courier will contact you in the next 2-3 working days. Sorry again for the trouble.\n\n{{signature}}"],
+ ['Wrong product: pickup arranged',ISSUE.WRONG,'Hindi',"नमस्ते {{name}}, ऑर्डर {{order_no}} के गलत प्रोडक्ट का पिकअप बुक कर दिया गया है। कूरियर अगले 2-3 कार्य दिवसों में आपसे संपर्क करेगा। परेशानी के लिए फिर से माफ़ी।\n\n{{signature}}"]
+];
+const TEMPLATE_VARS = ['name','order_no','ticket_id','product','awb','courier','tracking_link','expected_date','reship_awb','refund_amount','delivered_on','return_days','store','signature'];
+
+/* ================= STATE ================= */
+const S = {token:null, tokenExp:0, email:'', sheetIds:{}, headers:{}, data:{}, settings:{}, edit:null, editOrig:null, busy:0, booted:false};
+let tokenClient = null, tokenWaiter = null;
+
+/* ================= UTILS ================= */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+function fmt(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function nowStr(){ return fmt(new Date()); }
+function today(){ return nowStr().slice(0,10); }
+function parseDT(s){
+  if(!s) return null;
+  const m = String(s).trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3], +(m[4]||0), +(m[5]||0));
+  const d = new Date(s); return isNaN(d) ? null : d;
+}
+function hoursSince(s){ const d = parseDT(s); return d ? (Date.now()-d.getTime())/36e5 : null; }
+function ageLabel(h){ if(h==null) return ''; if(h<1) return Math.max(0,Math.round(h*60))+'m'; if(h<24) return Math.floor(h)+'h'; return Math.floor(h/24)+'d '+Math.floor(h%24)+'h'; }
+function dayDiff(a,b){ const A=parseDT(a), B=parseDT(b); if(!A||!B) return null; const a0=new Date(A.getFullYear(),A.getMonth(),A.getDate()), b0=new Date(B.getFullYear(),B.getMonth(),B.getDate()); return Math.round((b0-a0)/864e5); }
+function num(v){ const n = parseFloat(String(v??'').replace(/[^0-9.\-]/g,'')); return isNaN(n) ? null : n; }
+function rupee(v){ const n=num(v); return n==null ? '' : '₹'+n.toLocaleString('en-IN',{maximumFractionDigits:2}); }
+function colLetter(n){ let s=''; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26);} return s; }
+function normOrder(s){ return String(s||'').trim().replace(/^#/,'').toLowerCase(); }
+function digits(s){ return String(s||'').replace(/\D/g,''); }
+function setting(k, d=''){ const v = S.settings[k]; return (v===undefined || v==='') ? d : v; }
+function settingNum(k, d){ const n = num(S.settings[k]); return n==null ? d : n; }
+function team(){ return setting('TEAM','').split(',').map(x=>x.trim()).filter(Boolean); }
+function opts(list, sel){ return list.map(o => `<option value="${esc(o)}"${o===sel?' selected':''}>${esc(o===''?'— select —':o)}</option>`).join(''); }
+function toast(msg, err){ const t=$('toast'); t.textContent=msg; t.className=err?'err':''; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none', err?6000:2800); }
+function busy(on){ S.busy += on?1:-1; if(S.busy<0) S.busy=0; $('busy').style.display = S.busy ? 'block' : 'none'; }
+function randId(p){ return p + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,5).toUpperCase(); }
+
+/* ================= AUTH ================= */
+function waitForGoogle(){
+  if(window.google && google.accounts && google.accounts.oauth2){
+    if(APP_CONFIG.CLIENT_ID.startsWith('PASTE_')){ $('signin').textContent='Setup needed'; $('loginMsg').textContent='Add your OAuth Client ID and Sheet ID in APP_CONFIG inside index.html.'; return; }
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: APP_CONFIG.CLIENT_ID, scope: SCOPES,
+      callback: r => {
+        if(r.error){ tokenWaiter && tokenWaiter.reject(new Error(r.error)); return; }
+        S.token = r.access_token; S.tokenExp = Date.now() + (Number(r.expires_in||3600)-120)*1000;
+        tokenWaiter && tokenWaiter.resolve();
+      },
+      error_callback: e => { tokenWaiter && tokenWaiter.reject(new Error(e.type||'Sign-in cancelled')); }
+    });
+    $('signin').disabled=false; $('signin').textContent='Sign in with Google';
+  } else setTimeout(waitForGoogle, 200);
+}
+function requestToken(prompt){ return new Promise((resolve,reject)=>{ tokenWaiter={resolve,reject}; tokenClient.requestAccessToken({prompt}); }); }
+async function signIn(){
+  try{
+    await requestToken('');
+    const u = await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+S.token}}).then(r=>r.json());
+    S.email = u.email || '';
+    $('userChip').textContent = S.email;
+    await boot();
+  }catch(e){ $('loginMsg').textContent = 'Sign-in failed: '+e.message; }
+}
+async function api(url, opts={}, retry=true){
+  if(!S.token || Date.now() > S.tokenExp) await requestToken('');
+  const res = await fetch(url, {...opts, headers:{...(opts.headers||{}), Authorization:'Bearer '+S.token, 'Content-Type':'application/json'}});
+  if(res.status===401 && retry){ await requestToken(''); return api(url, opts, false); }
+  if(!res.ok){ let m=res.status+' '; try{ const j=await res.json(); m += (j.error&&j.error.message)||''; }catch(_){ } throw new Error('Google Sheets error: '+m); }
+  return res.json();
+}
+
+/* ================= SHEETS LAYER ================= */
+async function batchGet(ranges){
+  const q = ranges.map(r=>'ranges='+encodeURIComponent(r)).join('&');
+  const r = await api(`${BASE()}/values:batchGet?${q}`);
+  return r.valueRanges || [];
+}
+async function ensureSchema(){
+  const meta = await api(`${BASE()}?fields=sheets.properties(sheetId,title)`);
+  meta.sheets.forEach(s => S.sheetIds[s.properties.title] = s.properties.sheetId);
+  const tabs = Object.keys(SCHEMA);
+  const missing = tabs.filter(t => !(t in S.sheetIds));
+  if(missing.length){
+    const r = await api(`${BASE()}:batchUpdate`, {method:'POST', body:JSON.stringify({requests: missing.map(t=>({addSheet:{properties:{title:t, gridProperties:{frozenRowCount:1}}}}))})});
+    r.replies.forEach(rep => { const p = rep.addSheet.properties; S.sheetIds[p.title] = p.sheetId; });
+  }
+  const hr = await batchGet(tabs.map(t => `'${t}'!1:1`));
+  const data = [];
+  tabs.forEach((t,i) => {
+    const cur = ((hr[i] && hr[i].values && hr[i].values[0]) || []).map(String);
+    while(cur.length && cur[cur.length-1]==='') cur.pop();
+    const add = SCHEMA[t].filter(h => !cur.includes(h));
+    const full = cur.concat(add);
+    S.headers[t] = full;
+    if(add.length) data.push({range:`'${t}'!A1:${colLetter(full.length)}1`, values:[full]});
+  });
+  if(data.length) await api(`${BASE()}/values:batchUpdate`, {method:'POST', body:JSON.stringify({valueInputOption:'RAW', data})});
+}
+async function loadTabs(tabs){
+  const res = await batchGet(tabs.map(t => `'${t}'!A1:ZZ`));
+  tabs.forEach((t,i) => {
+    const rows = (res[i] && res[i].values) || [];
+    const hdr = (rows[0] || S.headers[t]).map(String);
+    S.headers[t] = hdr;
+    S.data[t] = rows.slice(1).map((r,idx) => {
+      if(!r.some(v => String(v).trim()!=='')) return null;
+      const o = {_row: idx+2};
+      hdr.forEach((h,c) => { if(h) o[h] = r[c]!==undefined ? String(r[c]) : ''; });
+      o._loadedUpdatedAt = o.Updated_At || '';
+      return o;
+    }).filter(Boolean);
+  });
+  if(tabs.includes('Settings')){ S.settings = {}; (S.data.Settings||[]).forEach(r => S.settings[r.Key] = r.Value); }
+}
+function rowFor(tab, obj, base){
+  return S.headers[tab].map((h,i) => (h in obj && !h.startsWith('_')) ? String(obj[h] ?? '') : ((base && base[i]) || ''));
+}
+async function appendRecords(tab, objs){
+  if(!objs.length) return;
+  const values = objs.map(o => rowFor(tab, o));
+  await api(`${BASE()}/values/${encodeURIComponent(`'${tab}'!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {method:'POST', body:JSON.stringify({values})});
+}
+async function findRow(tab, id){
+  const idCol = S.headers[tab].indexOf(ID_FIELD[tab]) + 1;
+  const L = colLetter(idCol);
+  const r = await batchGet([`'${tab}'!${L}:${L}`]);
+  const vals = (r[0] && r[0].values) || [];
+  for(let i=1;i<vals.length;i++) if(String(vals[i][0]||'')===String(id)) return i+1;
+  return null;
+}
+class Conflict extends Error{}
+/* Re-reads the live row before writing so a stale row number or another user's newer edit is never silently overwritten. */
+async function saveRecord(tab, obj, {force=false}={}){
+  const hdr = S.headers[tab], idF = ID_FIELD[tab], last = colLetter(hdr.length);
+  let row = obj._row;
+  let cur = [];
+  if(row){
+    const r = await batchGet([`'${tab}'!A${row}:${last}${row}`]);
+    cur = (r[0] && r[0].values && r[0].values[0]) || [];
+    if(String(cur[hdr.indexOf(idF)]||'') !== String(obj[idF])){
+      row = await findRow(tab, obj[idF]);
+      if(!row) throw new Error(`${obj[idF]} no longer exists in the sheet.`);
+      const r2 = await batchGet([`'${tab}'!A${row}:${last}${row}`]);
+      cur = (r2[0] && r2[0].values && r2[0].values[0]) || [];
+    }
+    const ui = hdr.indexOf('Updated_At');
+    if(!force && ui>=0 && obj._loadedUpdatedAt!==undefined && String(cur[ui]||'') !== String(obj._loadedUpdatedAt||'')){
+      throw new Conflict(`${obj[idF]} was changed by someone else (${cur[hdr.indexOf('Updated_By')]||'unknown'} at ${cur[ui]}).`);
+    }
+  }
+  if(hdr.includes('Updated_At')){ obj.Updated_At = nowStr(); obj.Updated_By = S.email; }
+  if(!row){ await appendRecords(tab, [obj]); return; }
+  await api(`${BASE()}/values/${encodeURIComponent(`'${tab}'!A${row}:${last}${row}`)}?valueInputOption=RAW`, {method:'PUT', body:JSON.stringify({values:[rowFor(tab,obj,cur)]})});
+  obj._row = row; obj._loadedUpdatedAt = obj.Updated_At || '';
+}
+async function deleteRecord(tab, obj){
+  const row = await findRow(tab, obj[ID_FIELD[tab]]);
+  if(!row) return;
+  await api(`${BASE()}:batchUpdate`, {method:'POST', body:JSON.stringify({requests:[{deleteDimension:{range:{sheetId:S.sheetIds[tab], dimension:'ROWS', startIndex:row-1, endIndex:row}}}]})});
+}
+function nextId(tab, field, prefix){
+  let max = 0;
+  (S.data[tab]||[]).forEach(r => { const m = String(r[field]||'').match(new RegExp('^'+prefix+'-(\\d+)$')); if(m) max = Math.max(max, +m[1]); });
+  return `${prefix}-${String(max+1).padStart(4,'0')}`;
+}
+
+/* ================= BOOT ================= */
+async function boot(){
+  busy(true);
+  try{
+    await ensureSchema();
+    await loadTabs(Object.keys(SCHEMA));
+    await seedDefaults();
+    $('login').hidden = true; $('app').hidden = false; $('nav').hidden = false; $('hright').hidden = false;
+    S.booted = true;
+    fillFilters();
+    renderAll();
+    setInterval(autoRefresh, 3*60*1000);
+  }catch(e){ $('loginMsg').textContent = e.message; toast(e.message, true); }
+  busy(false);
+}
+async function seedDefaults(){
+  const reload = [];
+  const haveKeys = new Set((S.data.Settings||[]).map(r=>r.Key));
+  const addS = DEFAULT_SETTINGS.filter(s => !haveKeys.has(s[0])).map(s => ({Key:s[0], Value:s[1], Notes:s[2]}));
+  if(addS.length){ await appendRecords('Settings', addS); reload.push('Settings'); }
+  if(!(S.data.Couriers||[]).length){ await appendRecords('Couriers', DEFAULT_COURIERS); reload.push('Couriers'); }
+  if(!(S.data.Templates||[]).length){
+    await appendRecords('Templates', DEFAULT_TEMPLATES.map((t,i) => ({Template_ID:'TPL-'+String(i+1).padStart(3,'0'), Name:t[0], Flow:t[1], Language:t[2], Body:t[3]})));
+    reload.push('Templates');
+  }
+  if(reload.length) await loadTabs(reload);
+}
+async function refreshAll(){
+  busy(true);
+  try{ await loadTabs(Object.keys(SCHEMA)); fillFilters(); renderAll(); toast('Data refreshed'); }
+  catch(e){ toast(e.message, true); }
+  busy(false);
+}
+async function autoRefresh(){
+  if($('drawer').classList.contains('open') || $('modalBack').style.display==='flex' || S.busy) return;
+  try{ await loadTabs(Object.keys(SCHEMA)); renderAll(); }catch(_){ }
+}
+document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('active', x===b));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id==='tab-'+b.dataset.tab));
+  renderAll();
+});
+function renderAll(){
+  const ls = setting('LAST_ORDER_SYNC','');
+  $('syncChip').textContent = ls ? `Orders synced ${ageLabel(hoursSince(ls))} ago` : 'Orders synced: never';
+  renderComplaints(); renderCases(); renderOrders(); renderTemplates(); renderDashboard(); renderSettings();
+}
+function couriersList(){ return (S.data.Couriers||[]).filter(c=>c.Courier).map(c=>c.Courier); }
+function fillFilters(){
+  const keep = id => $(id).value;
+  const set = (id, html) => { const v = keep(id); $(id).innerHTML = html; if(v!==undefined && [...$(id).options].some(o=>o.value===v)) $(id).value = v; };
+  set('cStatus', `<option value="__open">Open (not closed)</option><option value="__overdue">Overdue</option><option value="">All statuses</option>` + STATUSES.map(s=>`<option>${esc(s)}</option>`).join(''));
+  set('cIssue', `<option value="">All issue types</option>` + ISSUES.map(s=>`<option>${esc(s)}</option>`).join(''));
+  set('cChannel', `<option value="">All channels</option>` + CHANNELS.map(s=>`<option>${esc(s)}</option>`).join(''));
+  set('cCourier', `<option value="">All couriers</option>` + couriersList().map(s=>`<option>${esc(s)}</option>`).join('') + `<option value="__none">No courier set</option>`);
+  set('ccCourier', `<option value="">All couriers</option>` + couriersList().map(s=>`<option>${esc(s)}</option>`).join(''));
+  set('ccType', `<option value="">All case types</option>` + CASE_TYPES.map(s=>`<option>${esc(s)}</option>`).join(''));
+  set('tFlow', `<option value="">All flows</option><option>All</option>` + ISSUES.map(s=>`<option>${esc(s)}</option>`).join(''));
+}
+
+/* ================= HELPERS: ORDERS / COURIERS ================= */
+function findOrder(orderNo){ const n = normOrder(orderNo); if(!n) return null; return (S.data.Orders||[]).find(o => normOrder(o.Order_No)===n) || null; }
+function matchCourier(order){
+  if(!order) return '';
+  const cs = (S.data.Couriers||[]).filter(c => c.Courier && !/^no$/i.test(c.Active||''));
+  const url = String(order.Tracking_URL||'').toLowerCase(), comp = String(order.Courier_Company||'').toLowerCase();
+  for(const pass of [url, comp]){
+    if(!pass) continue;
+    for(const c of cs){
+      const kws = String(c.Match_Keywords||c.Courier).split(',').map(k=>k.trim().toLowerCase()).filter(Boolean);
+      if(kws.some(k => pass.includes(k))) return c.Courier;
+    }
+  }
+  return '';
+}
+function courierRec(name){ return (S.data.Couriers||[]).find(c => c.Courier===name) || null; }
+function ticketCases(tid){ return (S.data.Courier_Cases||[]).filter(c => c.Ticket_ID===tid); }
+function ticketNotes(tid){ return (S.data.Ticket_Notes||[]).filter(n => n.Ticket_ID===tid).sort((a,b)=> a.Timestamp<b.Timestamp?1:-1); }
+function isProblemOrder(o){
+  if(o.Cancelled_On || o.Delivered_On || /^DELIVERED$/i.test(o.Shipment_Status)) return null;
+  if(/^(FAILURE|NOT_DELIVERED|ATTEMPTED_DELIVERY)$/i.test(o.Shipment_Status)) return o.Shipment_Status.replace(/_/g,' ').toLowerCase();
+  if(!o.Shipped_On) return null;
+  const d = dayDiff(o.Shipped_On, nowStr());
+  return d!=null && d >= settingNum('DELAY_DAYS',7) ? `shipped ${d} days ago, not delivered` : null;
+}
+function ticketAgePill(t){
+  if(t.Status==='Closed') return `<span class="pill p-grey">closed</span>`;
+  const h = hoursSince(t.Created_At); if(h==null) return '';
+  const cls = h >= settingNum('TICKET_RED_HOURS',48) ? 'p-red' : h >= settingNum('TICKET_AMBER_HOURS',24) ? 'p-amber' : 'p-green';
+  return `<span class="pill ${cls}">${ageLabel(h)}</span>`;
+}
+function statusPill(s){
+  const m = {'New':'p-blue','In Progress':'p-blue','Waiting on Courier':'p-amber','Waiting on Customer':'p-purple','Resolved':'p-green','Closed':'p-grey'};
+  return `<span class="pill ${m[s]||'p-grey'}">${esc(s||'—')}</span>`;
+}
+function issuePill(s){
+  const m = {[ISSUE.DELAY]:'p-amber',[ISSUE.DISLIKE]:'p-purple',[ISSUE.WRONG]:'p-red'};
+  return `<span class="pill ${m[s]||'p-grey'}">${esc(s||'—')}</span>`;
+}
+function caseStale(c){
+  if(c.Case_Status==='Closed') return false;
+  const h = hoursSince(c.Courier_Updated_On || c.Raised_On);
+  return h!=null && h >= settingNum('COURIER_NO_UPDATE_HOURS',48);
+}
+function isOverdue(t){ return t.Status!=='Closed' && (hoursSince(t.Created_At)||0) >= settingNum('TICKET_RED_HOURS',48); }
+
+/* ================= COMPLAINTS TAB ================= */
+function renderComplaints(){
+  if(!S.booted) return;
+  const T = S.data.Tickets || [];
+  const open = T.filter(t => t.Status!=='Closed');
+  const pendRef = T.filter(t => t.Refund_Status==='Pending');
+  $('cKpis').innerHTML = [
+    ['Open complaints', open.length, ''],
+    ['Overdue (over '+settingNum('TICKET_RED_HOURS',48)+'h)', open.filter(isOverdue).length, open.filter(isOverdue).length?'red':''],
+    ['Waiting on courier', open.filter(t=>t.Status==='Waiting on Courier').length, 'amber'],
+    ['Follow-ups due today', open.filter(t=>t.Follow_Up_Date && t.Follow_Up_Date<=today()).length, 'amber'],
+    ['Refunds pending', `${pendRef.length} · ${rupee(pendRef.reduce((a,t)=>a+(num(t.Refund_Amount)||0),0))||'₹0'}`, pendRef.length?'red':'']
+  ].map(k=>`<div class="kpi ${k[2]}"><div class="l">${esc(k[0])}</div><div class="v">${esc(k[1])}</div></div>`).join('');
+
+  const q = $('cSearch').value.trim().toLowerCase(), st = $('cStatus').value, is = $('cIssue').value, ch = $('cChannel').value, co = $('cCourier').value;
+  let rows = T.filter(t => {
+    if(st==='__open' && t.Status==='Closed') return false;
+    if(st==='__overdue' && !isOverdue(t)) return false;
+    if(st && !st.startsWith('__') && t.Status!==st) return false;
+    if(is && t.Issue_Type!==is) return false;
+    if(ch && t.Channel!==ch) return false;
+    if(co==='__none' && t.Courier) return false;
+    if(co && co!=='__none' && t.Courier!==co) return false;
+    if(q){ const hay = [t.Ticket_ID,t.Customer_Name,t.Phone,t.Order_No,t.AWB,t.Product,t.Email,t.Pickup_AWB,t.Reship_AWB].join(' ').toLowerCase(); if(!hay.includes(q)) return false; }
+    return true;
+  }).sort((a,b) => (a.Created_At<b.Created_At?1:-1));
+  if(!rows.length){ $('cTable').innerHTML = `<div class="empty">${T.length?'No complaints match these filters.':'No complaints yet. Click "+ New complaint" to log the first one.'}</div>`; return; }
+  $('cTable').innerHTML = `<table><thead><tr><th>Ticket</th><th>Age</th><th>Customer</th><th>Order</th><th>Issue</th><th>Status</th><th>Courier case</th><th>Assigned</th><th>Refund</th><th>Follow-up</th></tr></thead><tbody>${
+    rows.map(t => {
+      const cs = ticketCases(t.Ticket_ID).filter(c=>c.Case_Status!=='Closed');
+      const csTxt = cs.length ? cs.map(c => `<span class="pill ${caseStale(c)?'p-red':'p-amber'}">${esc(c.Courier)}: ${esc(c.Courier_Status||'no reply')}</span>`).join(' ') : '<span class="muted">—</span>';
+      const ref = t.Refund_Status==='Pending' ? `<span class="pill p-red">Pending ${esc(rupee(t.Refund_Amount))}</span>` : t.Refund_Status==='Done' ? `<span class="pill p-green">Done ${esc(rupee(t.Refund_Amount))}</span>` : '<span class="muted">—</span>';
+      const fu = t.Follow_Up_Date ? `<span class="pill ${t.Follow_Up_Date<=today()&&t.Status!=='Closed'?'p-red':'p-grey'}">${esc(t.Follow_Up_Date)}</span>` : '';
+      return `<tr class="click" onclick="openTicket('${esc(t.Ticket_ID)}')"><td class="b nowrap">${esc(t.Ticket_ID)}<div class="muted small">${esc(t.Channel)}</div></td><td>${ticketAgePill(t)}</td><td>${esc(t.Customer_Name)}<div class="muted small">${esc(t.Phone)}</div></td><td class="nowrap">${esc(t.Order_No)}<div class="muted small clip">${esc(t.Product)}</div></td><td>${issuePill(t.Issue_Type)}</td><td>${statusPill(t.Status)}</td><td>${csTxt}</td><td>${esc(t.Assigned_To)}</td><td>${ref}</td><td>${fu}</td></tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+/* ---------- New ticket ---------- */
+function openNewTicket(prefillOrderNo){
+  const o = prefillOrderNo ? findOrder(prefillOrderNo) : null;
+  modal('New complaint', `
+    <div class="grid">
+      <div class="f"><label>Shopify order no.</label><div style="display:flex;gap:6px"><input class="inp" id="nt_order" value="${esc(o?o.Order_No:'')}" placeholder="#1234"><button class="btn" onclick="ntLookup()">Fetch</button></div></div>
+      <div class="f"><label>Or find by phone</label><div style="display:flex;gap:6px"><input class="inp" id="nt_phoneq" placeholder="10-digit phone"><button class="btn" onclick="ntPhoneLookup()">Find</button></div></div>
+      <div class="full" id="nt_msg"></div>
+      <div class="f"><label>Channel</label><select class="inp" id="nt_channel">${opts(CHANNELS,'WhatsApp')}</select></div>
+      <div class="f"><label>Issue type</label><select class="inp" id="nt_issue">${opts(ISSUES, ISSUE.DELAY)}</select></div>
+      <div class="f"><label>Customer name</label><input class="inp" id="nt_name"></div>
+      <div class="f"><label>Phone</label><input class="inp" id="nt_phone"></div>
+      <div class="f"><label>Email</label><input class="inp" id="nt_email"></div>
+      <div class="f"><label>Product</label><input class="inp" id="nt_product"></div>
+      <div class="f"><label>Order value (₹)</label><input class="inp" id="nt_value"></div>
+      <div class="f"><label>Priority</label><select class="inp" id="nt_priority">${opts(PRIORITIES,'Normal')}</select></div>
+      <div class="f"><label>Assigned to</label><input class="inp" id="nt_assign" list="teamList" value=""></div>
+      <div class="f full"><label>What did the customer say?</label><textarea class="inp" id="nt_note" placeholder="e.g. Parcel not received, tracking shows in transit since 4 days"></textarea></div>
+    </div><datalist id="teamList">${team().map(n=>`<option value="${esc(n)}">`).join('')}</datalist>`,
+    `<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="createTicket()">Create ticket</button>`);
+  if(o) ntFill(o);
+}
+function ntFill(o){
+  $('nt_order').value = o.Order_No; $('nt_name').value = o.Customer_Name; $('nt_phone').value = o.Phone; $('nt_email').value = o.Email;
+  $('nt_product').value = o.Items; $('nt_value').value = o.Order_Value;
+  const ex = (S.data.Tickets||[]).filter(t => normOrder(t.Order_No)===normOrder(o.Order_No) && t.Status!=='Closed');
+  const pr = isProblemOrder(o);
+  $('nt_msg').innerHTML = `<div class="note n-ok">Order found: ${esc(o.Order_No)} · ${esc(o.Order_Date)} · ${esc(o.Payment_Type)} · ${esc(o.Courier_Company||'no courier yet')} ${esc(o.AWB||'')} · ${esc((o.Shipment_Status||o.Fulfillment_Status||'').replace(/_/g,' '))}</div>`
+    + (pr ? `<div class="note n-warn">Problem order: ${esc(pr)}</div>` : '')
+    + (ex.length ? `<div class="note n-bad">This order already has an open ticket: ${ex.map(t=>esc(t.Ticket_ID)).join(', ')}. Check it before creating a new one.</div>` : '');
+}
+function ntLookup(){ const o = findOrder($('nt_order').value); if(o) ntFill(o); else $('nt_msg').innerHTML = `<div class="note n-warn">Order not found in synced orders. You can still fill the details by hand. If the order is new, run the Shopify sync from the Google Sheet.</div>`; }
+function ntPhoneLookup(){
+  const p = digits($('nt_phoneq').value).slice(-10); if(p.length<10){ $('nt_msg').innerHTML='<div class="note n-warn">Enter a 10-digit phone number.</div>'; return; }
+  const list = (S.data.Orders||[]).filter(o => digits(o.Phone).slice(-10)===p).sort((a,b)=>a.Order_Date<b.Order_Date?1:-1);
+  if(!list.length){ $('nt_msg').innerHTML='<div class="note n-warn">No synced orders with this phone.</div>'; return; }
+  if(list.length===1){ ntFill(list[0]); return; }
+  $('nt_msg').innerHTML = `<div class="note n-info">${list.length} orders found. Pick one: ${list.slice(0,10).map(o=>`<button class="btn sm" onclick="ntFill(findOrder('${esc(o.Order_No)}'))">${esc(o.Order_No)} · ${esc(o.Order_Date.slice(0,10))}</button>`).join(' ')}</div>`;
+}
+async function createTicket(){
+  const name = $('nt_name').value.trim(), phone = $('nt_phone').value.trim();
+  if(!name && !phone){ toast('Add at least the customer name or phone', true); return; }
+  const o = findOrder($('nt_order').value);
+  busy(true);
+  try{
+    await loadTabs(['Tickets']);
+    const id = nextId('Tickets','Ticket_ID','CT');
+    const t = {
+      Ticket_ID:id, Created_At:nowStr(), Created_By:S.email, Channel:$('nt_channel').value, Customer_Name:name, Phone:phone,
+      Email:$('nt_email').value.trim(), Order_No:$('nt_order').value.trim(), Product:$('nt_product').value.trim(), Order_Value:$('nt_value').value.trim(),
+      Issue_Type:$('nt_issue').value, Priority:$('nt_priority').value, Status:'New', Assigned_To:$('nt_assign').value.trim(),
+      Courier: matchCourier(o), AWB: o?o.AWB:'', Delivered_On: o&&o.Delivered_On ? o.Delivered_On.slice(0,10) : '',
+      Product_Price: o?o.Order_Value:'', Updated_At:nowStr(), Updated_By:S.email
+    };
+    await appendRecords('Tickets', [t]);
+    const notes = [{Note_ID:randId('N'), Ticket_ID:id, Timestamp:nowStr(), By:S.email, Type:'system', Note:`Ticket created (${t.Issue_Type}, via ${t.Channel})`}];
+    const n = $('nt_note').value.trim(); if(n) notes.push({Note_ID:randId('N'), Ticket_ID:id, Timestamp:nowStr(), By:S.email, Type:'note', Note:'Customer said: '+n});
+    await appendRecords('Ticket_Notes', notes);
+    await loadTabs(['Tickets','Ticket_Notes']);
+    closeModal(); renderAll(); toast(`${id} created`);
+    openTicket(id);
+  }catch(e){ toast(e.message, true); }
+  busy(false);
+}
+
+/* ---------- Ticket drawer ---------- */
+function openTicket(id){
+  const t = (S.data.Tickets||[]).find(x => x.Ticket_ID===id); if(!t){ toast('Ticket not found', true); return; }
+  S.edit = {...t}; S.editOrig = {...t};
+  renderDrawer();
+  $('drawer').classList.add('open'); $('drawerBack').style.display='block';
+}
+function closeDrawer(force){
+  if(!force && S.edit){ collectForm(); if(isDirty() && !confirm('You have unsaved changes on this ticket. Close without saving?')) return; }
+  $('drawer').classList.remove('open'); $('drawerBack').style.display='none'; S.edit = null;
+}
+function isDirty(){ if(!S.edit||!S.editOrig) return false; return SCHEMA.Tickets.some(h => String(S.edit[h]??'') !== String(S.editOrig[h]??'')); }
+function fld(label, f, type='text', extra={}){
+  const v = S.edit[f] ?? '';
+  const rr = extra.rr ? ' data-rr="1"' : '';
+  const dis = extra.disabled ? ' disabled' : '';
+  const cls = extra.full ? 'f full' : 'f';
+  let input;
+  if(type==='select') input = `<select class="inp" data-f="${f}"${rr}${dis} onchange="onField(this)">${opts(extra.options, v)}</select>`;
+  else if(type==='textarea') input = `<textarea class="inp" data-f="${f}"${dis} oninput="onField(this)">${esc(v)}</textarea>`;
+  else if(type==='check') return `<div class="${cls}"><label class="chk"><input type="checkbox" data-f="${f}"${rr}${dis} ${v==='Yes'?'checked':''} onchange="onField(this)"> ${esc(label)}</label></div>`;
+  else input = `<input class="inp" type="${type}" data-f="${f}" value="${esc(type==='date'?String(v).slice(0,10):v)}"${rr}${dis} placeholder="${esc(extra.ph||'')}" ${extra.list?`list="${extra.list}"`:''} onchange="onField(this)">`;
+  return `<div class="${cls}"><label>${esc(label)}</label>${input}</div>`;
+}
+function collectForm(){
+  if(!S.edit) return;
+  document.querySelectorAll('#drawer [data-f]').forEach(el => { S.edit[el.dataset.f] = el.type==='checkbox' ? (el.checked?'Yes':'') : el.value; });
+}
+function onField(el){
+  collectForm();
+  if(el.dataset.f==='Item_Received' && el.checked && !S.edit.Item_Received_On) S.edit.Item_Received_On = today();
+  if(el.dataset.f==='Courier' && !S.edit.Pickup_Cost){ const c = courierRec(S.edit.Courier); if(c && c.Default_Pickup_Cost) S.edit.Pickup_Cost = c.Default_Pickup_Cost; }
+  if(el.dataset.rr){ const sc = document.querySelector('#drawer .dbody'); const top = sc?sc.scrollTop:0; renderDrawer(); const sc2 = document.querySelector('#drawer .dbody'); if(sc2) sc2.scrollTop = top; }
+}
+function returnWindow(t){
+  const n = settingNum('RETURN_WINDOW_DAYS',2);
+  if(!t.Delivered_On) return {state:'missing', n};
+  const d = dayDiff(t.Delivered_On, t.Created_At);
+  if(d==null) return {state:'missing', n};
+  return {state: d<=n ? 'in' : 'out', n, d};
+}
+function stepsHTML(list){
+  let nowSet = false;
+  return `<div class="steps">${list.map(([lab,done]) => { let c = done?'done':''; if(!done && !nowSet){ c='now'; nowSet=true; } return `<span class="step ${c}">${done?'✓ ':''}${esc(lab)}</span>`; }).join('')}</div>`;
+}
+function flowHTML(t){
+  const cases = ticketCases(t.Ticket_ID);
+  const delayCases = cases.filter(c=>c.Case_Type==='Delay / Not Delivered');
+  const pickCases = cases.filter(c=>c.Case_Type==='Reverse Pickup');
+  const closed = t.Status==='Closed';
+  if(t.Issue_Type===ISSUE.DELAY){
+    const o = findOrder(t.Order_No);
+    const shippedDays = o && o.Shipped_On ? dayDiff(o.Shipped_On, nowStr()) : null;
+    const lost = /lost|RTO/i.test(t.Courier_Outcome);
+    let h = stepsHTML([['Complaint logged',true],['Courier case raised',delayCases.length>0],['Courier replied',delayCases.some(c=>c.Courier_Status||c.Courier_Update)],['Outcome decided',!!t.Courier_Outcome&&t.Courier_Outcome!=='Courier checking'],['Closed',closed]]);
+    if(shippedDays!=null){
+      const lim = settingNum('DELAY_DAYS',7);
+      h += `<div class="note ${shippedDays>=lim?'n-warn':'n-info'}">Shipped ${shippedDays} day(s) ago${o.Shipment_Status?' · Shopify status: '+esc(o.Shipment_Status.replace(/_/g,' ').toLowerCase()):''}. Delay limit is ${lim} days${shippedDays<lim?', so this may still be within normal transit time.':'.'}</div>`;
+    } else if(!o) h += `<div class="note n-info">No synced order found for this order number, so shipping dates are not shown.</div>`;
+    h += `<div style="margin-bottom:10px"><button class="btn primary sm" onclick="openCaseModal('Delay / Not Delivered')">${delayCases.length?'Raise another delay case':'Raise delay case with courier'}</button></div>`;
+    h += `<div class="grid">${fld('Courier outcome','Courier_Outcome','select',{options:OUTCOMES,rr:1})}`;
+    if(t.Courier_Outcome==='Customer asked to wait') h += fld('Follow up on','Follow_Up_Date','date');
+    h += `</div>`;
+    if(lost){
+      h += `<div class="grid" style="margin-top:10px">${fld('Re-ship offered to customer','Reship_Offered','check',{rr:1,full:1})}`;
+      if(t.Reship_Offered==='Yes'){
+        h += fld("Customer's choice",'Customer_Choice','select',{options:['','Re-ship','Refund','Waiting for reply'],rr:1});
+        if(t.Customer_Choice==='Re-ship') h += fld('New parcel AWB','Reship_AWB');
+        h += `</div>`;
+        if(t.Customer_Choice==='Refund') h += `<div class="note n-info">Fill the refund section below.</div>`;
+      } else h += `</div><div class="note n-warn">Ask the customer first: new parcel or refund. Tick the box once you have offered it.</div>`;
+    }
+    return h;
+  }
+  if(t.Issue_Type===ISSUE.DISLIKE){
+    const rw = returnWindow(t);
+    const allowed = rw.state==='in' || t.Return_Window_Override==='Yes';
+    let h = stepsHTML([['Complaint logged',true],['Return approved',t.Return_Approved==='Yes'],['Pickup requested',pickCases.length>0],['Item received back',t.Item_Received==='Yes'],['Refund done',t.Refund_Status==='Done'],['Closed',closed]]);
+    if(rw.state==='missing') h += `<div class="note n-warn">Delivered date is missing, so the ${rw.n}-day return window can't be checked. Enter "Delivered on" in the order section above.</div>`;
+    else if(rw.state==='in') h += `<div class="note n-ok">Within return window: complaint came ${rw.d} day(s) after delivery (limit ${rw.n}).</div>`;
+    else h += `<div class="note n-bad">Outside return window: complaint came ${rw.d} days after delivery (limit ${rw.n}).</div>` + `<div class="grid">${fld('Allow return as an exception','Return_Window_Override','check',{rr:1,full:1})}</div>`;
+    h += `<div class="grid" style="margin-top:8px">${fld('Return approved?','Return_Approved','select',{options:['','Yes','No'],rr:1})}</div>`;
+    if(t.Return_Approved==='No') h += `<div class="note n-info">Return not approved. Send the customer a reply and close the ticket.</div>`;
+    if(t.Return_Approved==='Yes'){
+      const can = allowed;
+      h += `<div style="margin:10px 0"><button class="btn primary sm" ${can?'':'disabled'} onclick="openCaseModal('Reverse Pickup')">${pickCases.length?'Request another pickup':'Request reverse pickup'}</button>${can?'':' <span class="small muted">Blocked: outside return window. Tick the exception box to allow.</span>'}</div>`;
+      h += `<div class="grid">${fld('Pickup AWB','Pickup_AWB')}${fld('Item received back at our end','Item_Received','check',{rr:1})}${t.Item_Received==='Yes'?fld('Received on','Item_Received_On','date'):''}</div>`;
+    }
+    return h;
+  }
+  if(t.Issue_Type===ISSUE.WRONG){
+    const price = num(t.Product_Price), cost = num(t.Pickup_Cost);
+    let h = stepsHTML([['Complaint logged',true],['Resolution chosen',!!t.Customer_Choice],['Pickup decided',!!t.Pickup_Decision],['Refund / new item sent',t.Refund_Status==='Done'||!!t.Reship_AWB],['Closed',closed]]);
+    h += `<div class="grid">${fld('Resolution for customer','Customer_Choice','select',{options:['','Refund','Send correct item'],rr:1})}`;
+    if(t.Customer_Choice==='Send correct item') h += fld('Correct item AWB','Reship_AWB');
+    const cr = courierRec(t.Courier);
+    h += fld('Product price (₹)','Product_Price','text',{rr:1}) + fld('Reverse pickup cost (₹)','Pickup_Cost','text',{rr:1,ph: cr&&cr.Default_Pickup_Cost?'default '+cr.Default_Pickup_Cost:'enter cost'}) + `</div>`;
+    if(price!=null && cost!=null){
+      h += cost > price ? `<div class="note n-warn">Suggestion: close without pickup. Pickup costs ${rupee(cost)}, which is more than the product (${rupee(price)}).</div>`
+                        : `<div class="note n-info">Suggestion: arrange pickup. Pickup costs ${rupee(cost)}, product is worth ${rupee(price)}.</div>`;
+    } else h += `<div class="note n-info">Enter product price and pickup cost to get a pickup suggestion.</div>`;
+    h += `<div class="grid">${fld('Pickup decision','Pickup_Decision','select',{options:['','Arrange pickup','Close without pickup'],rr:1})}</div>`;
+    if(t.Pickup_Decision==='Arrange pickup'){
+      h += `<div style="margin:10px 0"><button class="btn primary sm" onclick="openCaseModal('Reverse Pickup')">${pickCases.length?'Request another pickup':'Request reverse pickup'}</button></div>`;
+      h += `<div class="grid">${fld('Pickup AWB','Pickup_AWB')}${fld('Item received back at our end','Item_Received','check',{rr:1})}${t.Item_Received==='Yes'?fld('Received on','Item_Received_On','date'):''}</div>`;
+    }
+    return h;
+  }
+  return `<div class="note n-info">General complaint. Use notes, a courier case if needed, and the refund section.</div><div style="margin-bottom:6px"><button class="btn sm" onclick="openCaseModal('Delay / Not Delivered')">Raise courier case</button> <button class="btn sm" onclick="openCaseModal('Reverse Pickup')">Request pickup</button></div>`;
+}
+function renderDrawer(){
+  const t = S.edit; if(!t) return;
+  const cases = ticketCases(t.Ticket_ID), notes = ticketNotes(t.Ticket_ID);
+  const o = findOrder(t.Order_No);
+  const refundLocked = t.Issue_Type===ISSUE.DISLIKE && t.Item_Received!=='Yes';
+  const cList = [''].concat(couriersList());
+  const trk = o && o.Tracking_URL ? ` · <a href="${esc(o.Tracking_URL)}" target="_blank" rel="noopener">Track parcel ↗</a>` : '';
+  $('drawer').innerHTML = `
+  <div class="dhead"><div><div class="t">${esc(t.Ticket_ID)} · ${esc(t.Customer_Name||'Customer')}</div><div class="small" style="opacity:.8">Opened ${esc(t.Created_At)} by ${esc(t.Created_By)} · ${esc(t.Channel)}</div></div><button class="x" onclick="closeDrawer()">×</button></div>
+  <div class="dbody">
+    <div class="sec"><h4>Ticket ${ticketAgePill(t)} ${issuePill(t.Issue_Type)}</h4><div class="in grid">
+      ${fld('Status','Status','select',{options:STATUSES})}
+      ${fld('Issue type','Issue_Type','select',{options:ISSUES,rr:1})}
+      ${fld('Priority','Priority','select',{options:PRIORITIES})}
+      ${fld('Assigned to','Assigned_To','text',{list:'teamList2'})}
+      ${fld('Channel','Channel','select',{options:CHANNELS})}
+    </div><datalist id="teamList2">${team().map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
+
+    <div class="sec"><h4>Customer &amp; order ${o?`<span class="small muted" style="font-weight:400">${esc(o.Payment_Type)} · ${esc(o.Order_Date)}${trk}</span>`:''}</h4><div class="in grid">
+      ${fld('Customer name','Customer_Name')}${fld('Phone','Phone')}${fld('Email','Email')}${fld('Order no.','Order_No')}
+      ${fld('Product','Product','text',{full:1})}${fld('Order value (₹)','Order_Value')}
+      ${fld('Courier','Courier','select',{options: cList.includes(t.Courier)?cList:cList.concat([t.Courier]), rr:1})}${fld('AWB','AWB')}${fld('Delivered on','Delivered_On','date',{rr:1})}
+      ${o?`<div class="full small muted">Ship to: ${esc([o.Address,o.City,o.State,o.Pincode].filter(Boolean).join(', '))}${o.Courier_Company?` · Shopify courier: ${esc(o.Courier_Company)}`:''}</div>`:''}
+    </div></div>
+
+    <div class="sec"><h4>Resolution steps</h4><div class="in">${flowHTML(t)}</div></div>
+
+    <div class="sec"><h4>Refund</h4><div class="in">
+      ${refundLocked?`<div class="note n-warn">Refund unlocks once the item is marked "received back" above.</div>`:''}
+      <div class="grid">
+        ${fld('Refund status','Refund_Status','select',{options:REFUND_STATUS,disabled:refundLocked})}
+        ${fld('Refund amount (₹)','Refund_Amount','text',{disabled:refundLocked})}
+        ${fld('Refund mode','Refund_Mode','select',{options:REFUND_MODES,disabled:refundLocked})}
+        ${fld('Refund date','Refund_Date','date',{disabled:refundLocked})}
+        ${fld('Refund reference / UTR','Refund_Ref','text',{disabled:refundLocked,full:1})}
+      </div>
+      <div class="small muted" style="margin-top:6px">Process the actual refund in Shopify, then record it here.</div>
+    </div></div>
+
+    <div class="sec"><h4>Courier cases (${cases.length})</h4><div class="in">
+      ${cases.length ? cases.map(c => `<div class="casebox"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="b">${esc(c.Case_ID)}</span><span class="pill p-blue">${esc(c.Courier)}</span><span class="pill p-grey">${esc(c.Case_Type)}</span>${c.Case_Status==='Closed'?'<span class="pill p-grey">closed</span>':caseStale(c)?'<span class="pill p-red">no update '+ageLabel(hoursSince(c.Courier_Updated_On||c.Raised_On))+'</span>':'<span class="pill p-amber">open</span>'}<button class="btn sm" style="margin-left:auto" onclick="openCase('${esc(c.Case_ID)}')">Open</button></div>
+         <div class="small" style="margin-top:6px"><span class="muted">Asked:</span> ${esc(c.Our_Request)}</div>
+         <div class="small" style="margin-top:4px"><span class="muted">Courier says:</span> ${c.Courier_Status||c.Courier_Update?`<b>${esc(c.Courier_Status)}</b> ${esc(c.Courier_Update)} ${c.Expected_Date?'· expected '+esc(c.Expected_Date):''} ${c.Courier_Ref?'· ref '+esc(c.Courier_Ref):''} <span class="muted">(${esc(c.Courier_Updated_On)})</span>`:'<span class="muted">no reply yet</span>'}</div></div>`).join('') : '<div class="muted small">No courier cases yet.</div>'}
+    </div></div>
+
+    <div class="sec"><h4>Resolution summary</h4><div class="in">${fld('What was finally done (shown in reports)','Resolution_Summary','textarea',{full:1})}</div></div>
+
+    <div class="sec"><h4>Timeline</h4><div class="in">
+      <div style="display:flex;gap:6px;margin-bottom:12px"><input class="inp" style="flex:1" id="noteInput" placeholder="Add a note (call made, customer replied, etc.)" onkeydown="if(event.key==='Enter')addNote()"><button class="btn" onclick="addNote()">Add</button></div>
+      <div class="tl">${notes.length?notes.map(n=>`<div class="item ${n.Type==='system'?'sys':''}"><div>${esc(n.Note)}</div><div class="meta">${esc(n.Timestamp)} · ${esc(n.By)}</div></div>`).join(''):'<div class="muted small">No notes yet.</div>'}</div>
+    </div></div>
+  </div>
+  <div class="dfoot">
+    <button class="btn primary" onclick="saveTicket()">Save</button>
+    <button class="btn" onclick="openComposer()">✉ Reply to customer</button>
+    ${t.Status==='Closed'?`<button class="btn" onclick="reopenTicket()">Reopen</button>`:`<button class="btn green" onclick="closeTicket()">Close ticket</button>`}
+    <button class="btn danger" style="margin-left:auto" onclick="deleteTicket()">Delete</button>
+  </div>`;
+}
+function systemNotesFor(o, t){
+  const out = [];
+  const add = s => out.push({Note_ID:randId('N'), Ticket_ID:t.Ticket_ID, Timestamp:nowStr(), By:S.email, Type:'system', Note:s});
+  if(o.Status!==t.Status) add(`Status: ${o.Status||'—'} → ${t.Status}`);
+  if(o.Issue_Type!==t.Issue_Type) add(`Issue type changed to ${t.Issue_Type}`);
+  if(o.Assigned_To!==t.Assigned_To && t.Assigned_To) add(`Assigned to ${t.Assigned_To}`);
+  if(o.Courier_Outcome!==t.Courier_Outcome && t.Courier_Outcome) add(`Courier outcome: ${t.Courier_Outcome}`);
+  if(o.Customer_Choice!==t.Customer_Choice && t.Customer_Choice) add(`Customer choice: ${t.Customer_Choice}`);
+  if(o.Return_Approved!==t.Return_Approved && t.Return_Approved) add(`Return approved: ${t.Return_Approved}`);
+  if(o.Return_Window_Override!==t.Return_Window_Override && t.Return_Window_Override==='Yes') add('Return allowed as exception (outside window)');
+  if(o.Pickup_Decision!==t.Pickup_Decision && t.Pickup_Decision) add(`Pickup decision: ${t.Pickup_Decision}`);
+  if(o.Item_Received!==t.Item_Received && t.Item_Received==='Yes') add(`Item received back on ${t.Item_Received_On}`);
+  if(o.Refund_Status!==t.Refund_Status && t.Refund_Status) add(`Refund ${t.Refund_Status.toLowerCase()}${t.Refund_Amount?' ('+rupee(t.Refund_Amount)+')':''}`);
+  if(o.Reship_AWB!==t.Reship_AWB && t.Reship_AWB) add(`New parcel sent, AWB ${t.Reship_AWB}`);
+  return out;
+}
+async function saveTicket(opts={}){
+  collectForm();
+  const t = S.edit, o = S.editOrig || {};
+  if(t.Issue_Type===ISSUE.DISLIKE && t.Item_Received!=='Yes' && t.Refund_Status==='Done'){ toast('Refund can be marked Done only after the item is received back.', true); return false; }
+  if(t.Customer_Choice==='Refund' && !t.Refund_Status) t.Refund_Status = 'Pending';
+  if(t.Issue_Type===ISSUE.DISLIKE && t.Item_Received==='Yes' && !t.Refund_Status) t.Refund_Status = 'Pending';
+  if(t.Refund_Status==='Done' && !t.Refund_Date) t.Refund_Date = today();
+  if(t.Item_Received==='Yes' && !t.Item_Received_On) t.Item_Received_On = today();
+  if(t.Status==='Closed'){ if(!t.Closed_At) t.Closed_At = nowStr(); } else t.Closed_At = '';
+  if(t.Status==='New' && isDirty() && !opts.keepStatus) t.Status = 'In Progress';
+  const sys = systemNotesFor(o, t);
+  busy(true);
+  try{
+    try{ await saveRecord('Tickets', t); }
+    catch(e){
+      if(e instanceof Conflict){
+        if(confirm(e.message+'\n\nOK = save my version anyway (overwrites theirs)\nCancel = discard my changes and load theirs')) await saveRecord('Tickets', t, {force:true});
+        else { await loadTabs(['Tickets','Ticket_Notes','Courier_Cases']); renderAll(); S.edit=null; openTicket(t.Ticket_ID); busy(false); return false; }
+      } else throw e;
+    }
+    if(sys.length) await appendRecords('Ticket_Notes', sys);
+    await loadTabs(['Tickets','Ticket_Notes']);
+    renderAll();
+    if(!opts.silent){ openTicket(t.Ticket_ID); toast('Saved'); }
+    else { const fresh = S.data.Tickets.find(x=>x.Ticket_ID===t.Ticket_ID); if(fresh){ S.edit={...fresh}; S.editOrig={...fresh}; } }
+    busy(false); return true;
+  }catch(e){ toast(e.message, true); busy(false); return false; }
+}
+async function addNote(){
+  const v = $('noteInput').value.trim(); if(!v) return;
+  collectForm();
+  busy(true);
+  try{
+    await appendRecords('Ticket_Notes', [{Note_ID:randId('N'), Ticket_ID:S.edit.Ticket_ID, Timestamp:nowStr(), By:S.email, Type:'note', Note:v}]);
+    await loadTabs(['Ticket_Notes']);
+    renderDrawer(); toast('Note added');
+  }catch(e){ toast(e.message, true); }
+  busy(false);
+}
+async function closeTicket(){
+  collectForm();
+  const t = S.edit;
+  if(t.Refund_Status==='Pending' && !confirm('Refund is still marked Pending. Close the ticket anyway?')) return;
+  if(!t.Resolution_Summary){ const s = prompt('Short resolution summary (what was done)?',''); if(s===null) return; t.Resolution_Summary = s; }
+  const openCases = ticketCases(t.Ticket_ID).filter(c=>c.Case_Status!=='Closed');
+  const closeCases = openCases.length && confirm(`Also close ${openCases.length} open courier case(s) linked to this ticket?`);
+  t.Status = 'Closed';
+  const ok = await saveTicket({silent:true});
+  if(!ok) return;
+  if(closeCases){
+    busy(true);
+    try{ for(const c of openCases){ c.Case_Status='Closed'; c.Closed_On=nowStr(); await saveRecord('Courier_Cases', c); } await loadTabs(['Courier_Cases']); }
+    catch(e){ toast(e.message, true); }
+    busy(false);
+  }
+  renderAll(); closeDrawer(true); toast(`${t.Ticket_ID} closed`);
+}
+async function reopenTicket(){ collectForm(); S.edit.Status='In Progress'; await saveTicket(); }
+async function deleteTicket(){
+  if(!confirm(`Delete ${S.edit.Ticket_ID} permanently? Its notes stay in the sheet but the ticket row is removed.`)) return;
+  busy(true);
+  try{ await deleteRecord('Tickets', S.edit); await loadTabs(['Tickets']); renderAll(); closeDrawer(true); toast('Ticket deleted'); }
+  catch(e){ toast(e.message, true); }
+  busy(false);
+}
+
+/* ---------- Courier case create / edit ---------- */
+async function openCaseModal(type){
+  collectForm();
+  if(isDirty()){ const ok = await saveTicket({silent:true, keepStatus:true}); if(!ok) return; renderDrawer(); }
+  const t = S.edit, o = findOrder(t.Order_No);
+  const pickup = type==='Reverse Pickup';
+  const defReq = pickup
+    ? (t.Issue_Type===ISSUE.WRONG ? 'Wrong item was delivered. Please arrange a reverse pickup from the customer address and share the pickup AWB.' : 'Customer wants to return the product. Please arrange a reverse pickup and share the pickup AWB.')
+    : 'Customer says the parcel has not been received. Please check the status urgently and share POD or expected delivery date.';
+  const cr = courierRec(t.Courier);
+  modal(pickup?'Request reverse pickup':'Raise delay case with courier', `
+    ${t.Courier && cr && !cr.Sheet_ID ? `<div class="note n-warn">${esc(t.Courier)} has no shared sheet yet. The case is still saved here. Create the courier sheets from the Google Sheet menu (CareTrack → Create missing courier sheets) or send them the Excel export.</div>`:''}
+    <div class="grid">
+      <div class="f"><label>Courier partner</label><select class="inp" id="cm_courier">${opts([''].concat(couriersList()), t.Courier)}</select></div>
+      <div class="f"><label>Case type</label><select class="inp" id="cm_type">${opts(CASE_TYPES, type)}</select></div>
+      <div class="f"><label>Forward AWB</label><input class="inp" id="cm_awb" value="${esc(t.AWB)}"></div>
+      <div class="f"><label>Order no.</label><input class="inp" id="cm_order" value="${esc(t.Order_No)}"></div>
+      <div class="f"><label>Customer name</label><input class="inp" id="cm_name" value="${esc(t.Customer_Name)}"></div>
+      <div class="f"><label>Phone</label><input class="inp" id="cm_phone" value="${esc(t.Phone)}"></div>
+      <div class="f full"><label>Pickup address ${pickup?'':'(only needed for pickups)'}</label><input class="inp" id="cm_addr" value="${esc(pickup&&o?o.Address:'')}"></div>
+      <div class="f"><label>City</label><input class="inp" id="cm_city" value="${esc(o?o.City:'')}"></div>
+      <div class="f"><label>Pincode</label><input class="inp" id="cm_pin" value="${esc(o?o.Pincode:'')}"></div>
+      <div class="f full"><label>What we need from the courier</label><textarea class="inp" id="cm_req">${esc(defReq)}</textarea></div>
+    </div>`,
+    `<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="createCase()">Raise case</button>`);
+}
+async function createCase(){
+  const courier = $('cm_courier').value;
+  if(!courier){ toast('Pick a courier partner', true); return; }
+  const t = S.edit;
+  busy(true);
+  try{
+    await loadTabs(['Courier_Cases']);
+    const id = nextId('Courier_Cases','Case_ID','CC');
+    const c = {Case_ID:id, Ticket_ID:t.Ticket_ID, Courier:courier, Case_Type:$('cm_type').value, Order_No:$('cm_order').value.trim(), AWB:$('cm_awb').value.trim(),
+      Customer_Name:$('cm_name').value.trim(), Phone:$('cm_phone').value.trim(), Pickup_Address:$('cm_addr').value.trim(), City:$('cm_city').value.trim(),
+      Pincode:$('cm_pin').value.trim(), Our_Request:$('cm_req').value.trim(), Raised_On:nowStr(), Raised_By:S.email, Case_Status:'Open'};
+    await appendRecords('Courier_Cases', [c]);
+    const fresh = (S.data.Tickets||[]).find(x=>x.Ticket_ID===t.Ticket_ID) || t;
+    const upd = {...fresh, Status:'Waiting on Courier'};
+    if(!upd.Courier) upd.Courier = courier;
+    await saveRecord('Tickets', upd, {force:true});
+    await appendRecords('Ticket_Notes', [{Note_ID:randId('N'), Ticket_ID:t.Ticket_ID, Timestamp:nowStr(), By:S.email, Type:'system', Note:`${c.Case_Type} case ${id} raised with ${courier}`}]);
+    await loadTabs(['Courier_Cases','Tickets','Ticket_Notes']);
+    closeModal(); renderAll(); openTicket(t.Ticket_ID);
+    toast(`${id} raised with ${courier}. It reaches their sheet on the next sync.`);
+  }catch(e){ toast(e.message, true); }
+  busy(false);
+}
+function openCase(id){
+  const c = (S.data.Courier_Cases||[]).find(x=>x.Case_ID===id); if(!c) return;
+  S.caseEdit = {...c};
+  modal(`${c.Case_ID} · ${c.Courier}`, `
+    <div class="note n-info small">Ticket ${esc(c.Ticket_ID)} · ${esc(c.Case_Type)} · raised ${esc(c.Raised_On)} by ${esc(c.Raised_By)}${c.First_Response_On?` · first courier reply ${esc(c.First_Response_On)}`:''}</div>
+    <div class="grid">
+      <div class="f"><label>Our case status</label><select class="inp" id="ce_status">${opts(['Open','Closed'], c.Case_Status||'Open')}</select></div>
+      <div class="f"><label>AWB</label><input class="inp" id="ce_awb" value="${esc(c.AWB)}"></div>
+      <div class="f full"><label>What we asked</label><textarea class="inp" id="ce_req">${esc(c.Our_Request)}</textarea></div>
+    </div>
+    <h4 style="margin:14px 0 6px">Courier's update</h4>
+    <div class="small muted" style="margin-bottom:8px">These fields fill in from the courier's shared sheet. If they replied by email or phone, type it here. A later sync only replaces this if the courier changes their sheet.</div>
+    <div class="grid">
+      <div class="f"><label>Courier status</label><select class="inp" id="ce_cstatus">${opts(COURIER_STATUSES.includes(c.Courier_Status)?COURIER_STATUSES:COURIER_STATUSES.concat([c.Courier_Status]), c.Courier_Status)}</select></div>
+      <div class="f"><label>Courier reference no.</label><input class="inp" id="ce_ref" value="${esc(c.Courier_Ref)}"></div>
+      <div class="f"><label>Expected date</label><input class="inp" id="ce_exp" value="${esc(c.Expected_Date)}" placeholder="e.g. 12-11-2026"></div>
+      <div class="f"><label>Last courier update</label><input class="inp" value="${esc(c.Courier_Updated_On)}" disabled></div>
+      <div class="f full"><label>Courier's message</label><textarea class="inp" id="ce_upd">${esc(c.Courier_Update)}</textarea></div>
+    </div>`,
+    `<button class="btn" onclick="closeModal()">Cancel</button>${c.Ticket_ID?`<button class="btn" onclick="closeModal();openTicket('${esc(c.Ticket_ID)}')">Open ticket</button>`:''}<button class="btn primary" onclick="saveCase()">Save case</button>`);
+}
+async function saveCase(){
+  const c = S.caseEdit, before = {...c};
+  c.Case_Status = $('ce_status').value; c.AWB = $('ce_awb').value.trim(); c.Our_Request = $('ce_req').value.trim();
+  c.Courier_Status = $('ce_cstatus').value; c.Courier_Ref = $('ce_ref').value.trim(); c.Expected_Date = $('ce_exp').value.trim(); c.Courier_Update = $('ce_upd').value.trim();
+  const courierChanged = ['Courier_Status','Courier_Ref','Expected_Date','Courier_Update'].some(k => (before[k]||'')!==(c[k]||''));
+  if(courierChanged){ c.Courier_Updated_On = nowStr(); if(!c.First_Response_On) c.First_Response_On = c.Courier_Updated_On; }
+  if(c.Case_Status==='Closed' && !c.Closed_On) c.Closed_On = nowStr();
+  if(c.Case_Status!=='Closed') c.Closed_On = '';
+  busy(true);
+  try{
+    await saveRecord('Courier_Cases', c);
+    const notes = [];
+    if(courierChanged) notes.push({Note_ID:randId('N'), Ticket_ID:c.Ticket_ID, Timestamp:nowStr(), By:S.email, Type:'system', Note:`Courier update logged on ${c.Case_ID}: ${c.Courier_Status} ${c.Courier_Update}`.trim()});
+    if(before.Case_Status!==c.Case_Status) notes.push({Note_ID:randId('N'), Ticket_ID:c.Ticket_ID, Timestamp:nowStr(), By:S.email, Type:'system', Note:`Courier case ${c.Case_ID} ${c.Case_Status.toLowerCase()}`});
+    if(notes.length && c.Ticket_ID) await appendRecords('Ticket_Notes', notes);
+    await loadTabs(['Courier_Cases','Ticket_Notes']);
+    closeModal(); renderAll();
+    if(S.edit && S.edit.Ticket_ID===c.Ticket_ID) renderDrawer();
+    toast('Case saved');
+  }catch(e){ toast(e.message, true); }
+  busy(false);
+}
+
+/* ================= COURIER CASES TAB ================= */
+function renderCases(){
+  if(!S.booted) return;
+  const C = S.data.Courier_Cases || [];
+  const open = C.filter(c=>c.Case_Status!=='Closed');
+  $('ccKpis').innerHTML = [['Open cases',open.length,''],['No courier update '+settingNum('COURIER_NO_UPDATE_HOURS',48)+'h+',open.filter(caseStale).length, open.filter(caseStale).length?'red':''],
+    ['Delay cases open',open.filter(c=>c.Case_Type==='Delay / Not Delivered').length,'amber'],['Pickups open',open.filter(c=>c.Case_Type==='Reverse Pickup').length,'amber'],
+    ['Last courier sync', setting('LAST_COURIER_SYNC','') ? ageLabel(hoursSince(setting('LAST_COURIER_SYNC')))+' ago' : 'never','']]
+    .map(k=>`<div class="kpi ${k[2]}"><div class="l">${esc(k[0])}</div><div class="v">${esc(k[1])}</div></div>`).join('');
+  $('ccSheetLinks').innerHTML = (S.data.Couriers||[]).filter(c=>c.Courier).map(c => c.Sheet_URL ? `<a class="btn sm" href="${esc(c.Sheet_URL)}" target="_blank" rel="noopener">${esc(c.Courier)} sheet ↗</a>` : `<span class="pill p-grey">${esc(c.Courier)}: no shared sheet yet</span>`).join('');
+  const q = $('ccSearch').value.trim().toLowerCase(), co = $('ccCourier').value, st = $('ccStatus').value, ty = $('ccType').value;
+  const rows = C.filter(c => {
+    if(co && c.Courier!==co) return false;
+    if(st==='Open' && c.Case_Status==='Closed') return false;
+    if(st==='Closed' && c.Case_Status!=='Closed') return false;
+    if(ty && c.Case_Type!==ty) return false;
+    if(q && ![c.Case_ID,c.Ticket_ID,c.Order_No,c.AWB,c.Customer_Name,c.Phone,c.Courier_Ref].join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=>a.Raised_On<b.Raised_On?1:-1);
+  if(!rows.length){ $('ccTable').innerHTML = `<div class="empty">${C.length?'No cases match these filters.':'No courier cases yet. Raise one from inside a complaint.'}</div>`; return; }
+  $('ccTable').innerHTML = `<table><thead><tr><th>Case</th><th>Courier</th><th>Type</th><th>Order / AWB</th><th>Customer</th><th>Raised</th><th>Courier status</th><th>Latest update</th><th>Expected</th><th>Last reply</th></tr></thead><tbody>${
+    rows.map(c => {
+      const stale = caseStale(c);
+      const lr = c.Case_Status==='Closed' ? '<span class="pill p-grey">closed</span>' : `<span class="pill ${stale?'p-red':'p-green'}">${c.Courier_Updated_On?ageLabel(hoursSince(c.Courier_Updated_On))+' ago':'none · '+ageLabel(hoursSince(c.Raised_On))}</span>`;
+      return `<tr class="click" onclick="openCase('${esc(c.Case_ID)}')"><td class="b nowrap">${esc(c.Case_ID)}<div class="muted small">${esc(c.Ticket_ID)}</div></td><td>${esc(c.Courier)}</td><td>${esc(c.Case_Type)}</td><td class="nowrap">${esc(c.Order_No)}<div class="muted small">${esc(c.AWB)}</div></td><td>${esc(c.Customer_Name)}<div class="muted small">${esc(c.City)} ${esc(c.Pincode)}</div></td><td class="nowrap">${esc(c.Raised_On.slice(0,10))}<div class="muted small">${dayDiff(c.Raised_On,nowStr())} day(s)</div></td><td>${c.Courier_Status?`<span class="pill p-blue">${esc(c.Courier_Status)}</span>`:'<span class="muted">—</span>'}</td><td class="clip" title="${esc(c.Courier_Update)}">${esc(c.Courier_Update)}</td><td class="nowrap">${esc(c.Expected_Date)}</td><td>${lr}</td></tr>`;
+    }).join('')}</tbody></table>`;
+}
+function exportCases(){
+  if(typeof XLSX==='undefined'){ toast('Excel library did not load. Check your internet connection.', true); return; }
+  const co = $('ccCourier').value;
+  const open = (S.data.Courier_Cases||[]).filter(c => c.Case_Status!=='Closed' && (!co || c.Courier===co));
+  if(!open.length){ toast('No open cases to export', true); return; }
+  const wb = XLSX.utils.book_new();
+  const byC = {}; open.forEach(c => (byC[c.Courier] = byC[c.Courier] || []).push(c));
+  Object.keys(byC).forEach(name => {
+    const rows = byC[name].map(c => ({'Case ID':c.Case_ID,'Raised on':c.Raised_On,'Case type':c.Case_Type,'Order no':c.Order_No,'AWB':c.AWB,'Customer':c.Customer_Name,'Phone':c.Phone,'Pickup address':c.Pickup_Address,'City':c.City,'Pincode':c.Pincode,'Our request':c.Our_Request,'Courier status':c.Courier_Status,'Courier update':c.Courier_Update,'Courier ref':c.Courier_Ref,'Expected date':c.Expected_Date}));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), name.slice(0,31));
+  });
+  XLSX.writeFile(wb, `Zikku_open_courier_cases_${co||'all'}_${today()}.xlsx`);
+}
+
+/* ================= ORDERS TAB ================= */
+function renderOrders(){
+  if(!S.booted) return;
+  const O = S.data.Orders || [];
+  const probs = O.filter(isProblemOrder);
+  const openOrderNos = new Set((S.data.Tickets||[]).filter(t=>t.Status!=='Closed').map(t=>normOrder(t.Order_No)));
+  const probNoTicket = probs.filter(o => !openOrderNos.has(normOrder(o.Order_No)));
+  $('oKpis').innerHTML = [['Synced orders',O.length,''],['Problem orders',probs.length,probs.length?'amber':''],['Problem orders with no ticket',probNoTicket.length,probNoTicket.length?'red':''],
+    ['Last Shopify sync', setting('LAST_ORDER_SYNC','') ? ageLabel(hoursSince(setting('LAST_ORDER_SYNC')))+' ago' : 'never','']]
+    .map(k=>`<div class="kpi ${k[2]}"><div class="l">${esc(k[0])}</div><div class="v">${esc(k[1])}</div></div>`).join('');
+  if(!O.length){ $('oTable').innerHTML = `<div class="empty">No Shopify orders synced yet.<br>Open the Google Sheet and use the menu CareTrack → Sync Shopify orders now.</div>`; return; }
+  const q = $('oSearch').value.trim().toLowerCase(), view = $('oView').value;
+  let rows = O.filter(o => {
+    if(view==='problem' && !isProblemOrder(o)) return false;
+    if(q && ![o.Order_No,o.Customer_Name,o.Phone,o.AWB,o.Email,o.City,o.Pincode].join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=>a.Order_Date<b.Order_Date?1:-1);
+  const total = rows.length; rows = rows.slice(0,300);
+  $('oTable').innerHTML = (total>300?`<div class="note n-info" style="margin:8px">Showing 300 of ${total}. Use search to narrow down.</div>`:'') + `<table><thead><tr><th>Order</th><th>Customer</th><th>City</th><th>Value</th><th>Courier / AWB</th><th>Shipment</th><th>Shipped</th><th>Delivered</th><th>Flag</th><th>Ticket</th></tr></thead><tbody>${
+    rows.map(o => {
+      const pr = isProblemOrder(o);
+      const tk = (S.data.Tickets||[]).filter(t=>normOrder(t.Order_No)===normOrder(o.Order_No));
+      const tkTxt = tk.length ? tk.map(t=>`<span class="pill ${t.Status==='Closed'?'p-grey':'p-blue'}">${esc(t.Ticket_ID)}</span>`).join(' ') : '';
+      return `<tr class="click" onclick="openOrder('${esc(o.Order_No)}')"><td class="b nowrap">${esc(o.Order_No)}<div class="muted small">${esc(o.Order_Date.slice(0,10))}</div></td><td>${esc(o.Customer_Name)}<div class="muted small">${esc(o.Phone)}</div></td><td>${esc(o.City)}<div class="muted small">${esc(o.Pincode)}</div></td><td class="nowrap">${esc(rupee(o.Order_Value))}<div class="muted small">${esc(o.Payment_Type)}</div></td><td>${esc(o.Courier_Company)}<div class="muted small">${o.Tracking_URL?`<a href="${esc(o.Tracking_URL)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(o.AWB||'track')}</a>`:esc(o.AWB)}</div></td><td>${o.Cancelled_On?'<span class="pill p-grey">cancelled</span>':esc((o.Shipment_Status||o.Fulfillment_Status||'').replace(/_/g,' ').toLowerCase())}</td><td class="nowrap">${esc(o.Shipped_On.slice(0,10))}</td><td class="nowrap">${esc(o.Delivered_On.slice(0,10))}</td><td>${pr?`<span class="pill p-red">${esc(pr)}</span>`:''}</td><td>${tkTxt}</td></tr>`;
+    }).join('')}</tbody></table>`;
+}
+function openOrder(no){
+  const o = findOrder(no); if(!o) return;
+  const tk = (S.data.Tickets||[]).filter(t=>normOrder(t.Order_No)===normOrder(o.Order_No));
+  const pr = isProblemOrder(o);
+  modal(`Order ${o.Order_No}`, `
+    ${pr?`<div class="note n-warn">Problem order: ${esc(pr)}</div>`:''}
+    <div class="grid small">
+      <div><div class="muted">Customer</div><b>${esc(o.Customer_Name)}</b><br>${esc(o.Phone)}<br>${esc(o.Email)}</div>
+      <div><div class="muted">Ship to</div>${esc([o.Address,o.City,o.State,o.Pincode].filter(Boolean).join(', '))}</div>
+      <div><div class="muted">Order</div>${esc(o.Order_Date)} · ${esc(rupee(o.Order_Value))}<br>${esc(o.Payment_Type)} (${esc(o.Payment_Gateway)}) · ${esc(o.Financial_Status)}</div>
+      <div><div class="muted">Shipping</div>${esc(o.Courier_Company||'—')} · ${esc(o.AWB||'no AWB')}<br>Status: ${esc((o.Shipment_Status||o.Fulfillment_Status||'').replace(/_/g,' ').toLowerCase())}<br>Shipped ${esc(o.Shipped_On||'—')} · Delivered ${esc(o.Delivered_On||'—')}${o.Tracking_URL?`<br><a href="${esc(o.Tracking_URL)}" target="_blank" rel="noopener">Open tracking ↗</a>`:''}</div>
+      <div class="full"><div class="muted">Items</div>${esc(o.Items)}</div>
+      <div class="full"><div class="muted">Tickets for this order</div>${tk.length?tk.map(t=>`<button class="btn sm" onclick="closeModal();openTicket('${esc(t.Ticket_ID)}')">${esc(t.Ticket_ID)} · ${esc(t.Status)}</button>`).join(' '):'None'}</div>
+    </div>`,
+    `<button class="btn" onclick="closeModal()">Close</button><button class="btn primary" onclick="closeModal();openNewTicket('${esc(o.Order_No)}')">Raise complaint</button>`);
+}
+
+/* ================= TEMPLATES ================= */
+function renderTemplates(){
+  if(!S.booted) return;
+  $('varHelp').innerHTML = 'Variables you can use in a template: ' + TEMPLATE_VARS.map(v=>`<code>{{${v}}}</code>`).join('');
+  const q = $('tSearch').value.trim().toLowerCase(), fl = $('tFlow').value, lg = $('tLang').value;
+  const rows = (S.data.Templates||[]).filter(t => (!fl || t.Flow===fl) && (!lg || t.Language===lg) && (!q || (t.Name+' '+t.Body).toLowerCase().includes(q)));
+  $('tGrid').innerHTML = rows.length ? rows.map(t => `<div class="tpl"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><b>${esc(t.Name)}</b><span class="pill p-blue">${esc(t.Language)}</span><span class="pill p-grey">${esc(t.Flow)}</span></div><pre>${esc(t.Body)}</pre><div style="display:flex;gap:6px"><button class="btn sm" onclick="editTemplate('${esc(t.Template_ID)}')">Edit</button><button class="btn sm danger" onclick="delTemplate('${esc(t.Template_ID)}')">Delete</button></div></div>`).join('') : '<div class="empty">No templates match.</div>';
+}
+function editTemplate(id){
+  const t = id ? (S.data.Templates||[]).find(x=>x.Template_ID===id) : {Name:'',Flow:'All',Language:'English',Body:''};
+  S.tplEdit = {...t};
+  modal(id?'Edit template':'New template', `
+    <div class="grid">
+      <div class="f full"><label>Name</label><input class="inp" id="te_name" value="${esc(t.Name)}"></div>
+      <div class="f"><label>Flow</label><select class="inp" id="te_flow">${opts(['All'].concat(ISSUES), t.Flow)}</select></div>
+      <div class="f"><label>Language</label><select class="inp" id="te_lang">${opts(['English','Hindi'], t.Language)}</select></div>
+      <div class="f full"><label>Message</label><textarea class="inp" id="te_body" style="min-height:180px">${esc(t.Body)}</textarea></div>
+      <div class="full small vars">${TEMPLATE_VARS.map(v=>`<code>{{${v}}}</code>`).join('')}</div>
+    </div>`,
+    `<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveTemplate()">Save template</button>`);
+}
+async function saveTemplate(){
+  const t = S.tplEdit;
+  t.Name = $('te_name').value.trim(); t.Flow = $('te_flow').value; t.Language = $('te_lang').value; t.Body = $('te_body').value;
+  if(!t.Name || !t.Body.trim()){ toast('Name and message are required', true); return; }
+  busy(true);
+  try{
+    if(!t.Template_ID){ t.Template_ID = randId('TPL-'); await appendRecords('Templates',[t]); }
+    else await saveRecord('Templates', t);
+    await loadTabs(['Templates']); closeModal(); renderTemplates(); toast('Template saved');
+  }catch(e){ toast(e.message, true); }
+  busy(false);
+}
+async function delTemplate(id){
+  const t = (S.data.Templates||[]).find(x=>x.Template_ID===id); if(!t || !confirm(`Delete template "${t.Name}" (${t.Language})?`)) return;
+  busy(true);
+  try{ await deleteRecord('Templates', t); await loadTabs(['Templates']); renderTemplates(); toast('Template deleted'); }
+  catch(e){ toast(e.message, true); }
+  busy(false);
+}
+function templateVars(t){
+  const o = findOrder(t.Order_No);
+  const cs = ticketCases(t.Ticket_ID).filter(c=>c.Expected_Date).sort((a,b)=>a.Courier_Updated_On<b.Courier_Updated_On?1:-1);
+  return {
+    name: (t.Customer_Name||'').trim(), order_no: t.Order_No, ticket_id: t.Ticket_ID, product: t.Product, awb: t.AWB, courier: t.Courier,
+    tracking_link: o ? o.Tracking_URL : '', expected_date: cs[0] ? cs[0].Expected_Date : '', reship_awb: t.Reship_AWB,
+    refund_amount: t.Refund_Amount, delivered_on: t.Delivered_On, return_days: setting('RETURN_WINDOW_DAYS','2'),
+    store: setting('STORE_NAME','Zikku'), signature: setting('SIGNATURE','Team Zikku')
+  };
+}
+function fillTemplate(body, vars){ return body.replace(/\{\{(\w+)\}\}/g, (m,k) => (vars[k]!==undefined && vars[k]!=='') ? vars[k] : m); }
+function openComposer(){
+  collectForm();
+  const t = S.edit;
+  const list = (S.data.Templates||[]).filter(x => x.Flow==='All' || x.Flow===t.Issue_Type);
+  modal(`Reply to ${t.Customer_Name||'customer'}`, `
+    <div class="grid">
+      <div class="f"><label>Template</label><select class="inp" id="rc_tpl" onchange="rcFill()"><option value="">— pick a template —</option>${list.map(x=>`<option value="${esc(x.Template_ID)}">${esc(x.Name)} (${esc(x.Language)})</option>`).join('')}</select></div>
+      <div class="f"><label>Send to</label><input class="inp" value="${esc(t.Phone)}${t.Email?' · '+esc(t.Email):''}" disabled></div>
+      <div class="f full"><label>Message (edit before sending)</label><textarea class="inp" id="rc_body" style="min-height:200px" oninput="rcCheck()"></textarea></div>
+      <div class="full" id="rc_warn"></div>
+    </div>`,
+    `<button class="btn" onclick="closeModal()">Cancel</button>
+     <button class="btn" onclick="rcCopy()">Copy</button>
+     <button class="btn" onclick="rcGmail()">Open in Gmail</button>
+     <button class="btn primary" onclick="rcWhatsApp()">Open in WhatsApp</button>`);
+}
+function rcFill(){ const tp = (S.data.Templates||[]).find(x=>x.Template_ID===$('rc_tpl').value); if(!tp) return; $('rc_body').value = fillTemplate(tp.Body, templateVars(S.edit)); rcCheck(); }
+function rcCheck(){ const miss = [...new Set(($('rc_body').value.match(/\{\{\w+\}\}/g)||[]))]; $('rc_warn').innerHTML = miss.length ? `<div class="note n-warn">Fill these before sending: ${miss.map(esc).join(', ')}</div>` : ''; }
+async function rcLog(via){
+  const tp = (S.data.Templates||[]).find(x=>x.Template_ID===$('rc_tpl').value);
+  try{ await appendRecords('Ticket_Notes',[{Note_ID:randId('N'), Ticket_ID:S.edit.Ticket_ID, Timestamp:nowStr(), By:S.email, Type:'note', Note:`Reply opened in ${via}${tp?': '+tp.Name:''}`}]); await loadTabs(['Ticket_Notes']); renderDrawer(); }catch(_){ }
+}
+function rcCopy(){ const v=$('rc_body').value; if(!v) return; navigator.clipboard.writeText(v).then(()=>toast('Copied'),()=>{ $('rc_body').select(); document.execCommand('copy'); toast('Copied'); }); rcLog('clipboard'); }
+function rcWhatsApp(){
+  const v = $('rc_body').value; if(!v){ toast('Write or pick a message first', true); return; }
+  let p = digits(S.edit.Phone); if(p.length>10 && p.startsWith('0')) p = p.replace(/^0+/,''); if(p.length===10) p = '91'+p;
+  if(p.length<11){ toast('Phone number looks incomplete', true); return; }
+  window.open(`https://wa.me/${p}?text=${encodeURIComponent(v)}`, '_blank'); rcLog('WhatsApp');
+}
+function rcGmail(){
+  const v = $('rc_body').value; if(!v){ toast('Write or pick a message first', true); return; }
+  if(!S.edit.Email){ toast('No email on this ticket', true); return; }
+  const su = `Your ${setting('STORE_NAME','Zikku')} order ${S.edit.Order_No} (${S.edit.Ticket_ID})`;
+  window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(S.edit.Email)}&su=${encodeURIComponent(su)}&body=${encodeURIComponent(v)}`, '_blank'); rcLog('Gmail');
+}
+
+/* ================= DASHBOARD ================= */
+function bars(title, pairs, fmtV){
+  const max = Math.max(1, ...pairs.map(p=>p[1]));
+  return `<div class="card"><h3>${esc(title)}</h3><div class="body">${pairs.length ? pairs.map(p=>`<div class="bar"><div class="lab" title="${esc(p[0])}">${esc(p[0]||'(blank)')}</div><div class="track"><div class="fill" style="width:${Math.round(p[1]/max*100)}%"></div></div><div class="num">${fmtV?fmtV(p[1]):p[1]}</div></div>`).join('') : '<div class="muted small">No data in this period.</div>'}</div></div>`;
+}
+function countBy(list, fn){ const m = {}; list.forEach(x => { const k = fn(x); m[k] = (m[k]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); }
+function renderDashboard(){
+  if(!S.booted) return;
+  const days = +$('dPeriod').value;
+  const inP = d => !days || (hoursSince(d)!=null && hoursSince(d) <= days*24);
+  const T = (S.data.Tickets||[]).filter(t => inP(t.Created_At));
+  const C = (S.data.Courier_Cases||[]).filter(c => inP(c.Raised_On));
+  const closed = T.filter(t => t.Status==='Closed' && t.Closed_At);
+  const avgRes = closed.length ? closed.reduce((a,t)=>a + (parseDT(t.Closed_At)-parseDT(t.Created_At))/36e5, 0)/closed.length : null;
+  const refunded = T.filter(t=>t.Refund_Status==='Done');
+  $('dKpis').innerHTML = [
+    ['Complaints', T.length, ''], ['Closed', closed.length, 'green'], ['Avg time to close', avgRes!=null?ageLabel(avgRes):'—', ''],
+    ['Courier cases raised', C.length, ''], ['Refunds done', `${refunded.length} · ${rupee(refunded.reduce((a,t)=>a+(num(t.Refund_Amount)||0),0))||'₹0'}`, ''],
+    ['Pickups closed without return', T.filter(t=>t.Pickup_Decision==='Close without pickup').length, '']
+  ].map(k=>`<div class="kpi ${k[2]}"><div class="l">${esc(k[0])}</div><div class="v">${esc(k[1])}</div></div>`).join('');
+  // courier response
+  const cr = {}; C.forEach(c => { const k=c.Courier||'(none)'; cr[k]=cr[k]||{n:0,resp:0,sum:0,stale:0}; cr[k].n++; if(c.First_Response_On){ cr[k].resp++; cr[k].sum += (parseDT(c.First_Response_On)-parseDT(c.Raised_On))/36e5; } if(caseStale(c)) cr[k].stale++; });
+  const crRows = Object.entries(cr);
+  const crCard = `<div class="card"><h3>Courier responsiveness</h3><div class="body" style="padding:0">${crRows.length?`<table><thead><tr><th>Courier</th><th>Cases</th><th>Replied</th><th>Avg first reply</th><th>Stuck now</th></tr></thead><tbody>${crRows.map(([k,v])=>`<tr><td class="b">${esc(k)}</td><td>${v.n}</td><td>${v.resp}</td><td>${v.resp?ageLabel(v.sum/v.resp):'—'}</td><td>${v.stale?`<span class="pill p-red">${v.stale}</span>`:'0'}</td></tr>`).join('')}</tbody></table>`:'<div class="body muted small">No courier cases in this period.</div>'}</div></div>`;
+  const repeat = countBy(T.filter(t=>digits(t.Phone).length>=10), t => digits(t.Phone).slice(-10)).filter(p=>p[1]>1).map(([ph,n]) => { const t = T.find(x=>digits(x.Phone).slice(-10)===ph); return [`${t?t.Customer_Name:''} (${ph})`, n]; });
+  $('dGrid').innerHTML =
+    bars('Complaints by issue type', countBy(T, t=>t.Issue_Type)) +
+    bars('Complaints by courier', countBy(T, t=>t.Courier||'Not set')) +
+    bars('Complaints by product (top 10)', countBy(T, t=>t.Product||'Not set').slice(0,10)) +
+    bars('Complaints by channel', countBy(T, t=>t.Channel)) +
+    crCard +
+    bars('Delay complaints by courier', countBy(T.filter(t=>t.Issue_Type===ISSUE.DELAY), t=>t.Courier||'Not set')) +
+    bars('Outcome of lost/delay cases', countBy(T.filter(t=>t.Courier_Outcome), t=>t.Courier_Outcome)) +
+    bars('Repeat complainers', repeat.slice(0,10));
+}
+
+/* ================= SETTINGS ================= */
+function renderSettings(){
+  if(!S.booted) return;
+  const rows = (S.data.Settings||[]).filter(r => !/^LAST_/.test(r.Key));
+  $('setForm').innerHTML = rows.map(r => `<div class="f" style="margin-bottom:10px"><label>${esc(r.Key.replace(/_/g,' '))}</label><input class="inp" data-skey="${esc(r.Key)}" value="${esc(r.Value)}"><div class="small muted">${esc(r.Notes)}</div></div>`).join('') + `<button class="btn primary" onclick="saveSettings()">Save settings</button>`;
+  $('connInfo').innerHTML = `Signed in as <b>${esc(S.email)}</b><br>Google Sheet: <a href="https://docs.google.com/spreadsheets/d/${esc(APP_CONFIG.SHEET_ID)}" target="_blank" rel="noopener">open sheet ↗</a><br>Last Shopify sync: ${esc(setting('LAST_ORDER_SYNC','never'))}<br>Last courier sync: ${esc(setting('LAST_COURIER_SYNC','never'))}<br><br><span class="muted">Shopify orders and courier sheets are synced by the Apps Script inside the Google Sheet every 30 minutes. To sync right away, open the sheet and use the CareTrack menu.</span>`;
+  const C = S.data.Couriers || [];
+  $('courierTable').innerHTML = `<table><thead><tr><th>Courier</th><th>Match keywords</th><th>Contact</th><th>Default pickup cost</th><th>Shared sheet</th><th>Active</th><th></th></tr></thead><tbody>${
+    C.map(c => `<tr><td class="b">${esc(c.Courier)}</td><td class="small">${esc(c.Match_Keywords)}</td><td class="small">${esc(c.Contact_Person)}<br>${esc(c.Email)} ${esc(c.Phone)}</td><td>${esc(rupee(c.Default_Pickup_Cost))||'<span class="muted">not set</span>'}</td><td>${c.Sheet_URL?`<a href="${esc(c.Sheet_URL)}" target="_blank" rel="noopener">open ↗</a>`:'<span class="muted small">not created</span>'}</td><td>${esc(c.Active)}</td><td><button class="btn sm" onclick="editCourier('${esc(c.Courier)}')">Edit</button></td></tr>`).join('')}</tbody></table>
+    <div class="small muted" style="padding:10px 14px">Match keywords are compared with the courier name and tracking link that Shopify has for each order, so a new complaint picks the right courier on its own. Shiprocket and Bigship orders sometimes show the underlying courier (like Delhivery) in Shopify. If that happens, check the tracking link of a few orders and add a word from it here.</div>`;
+}
+async function saveSettings(){
+  busy(true);
+  try{
+    for(const el of document.querySelectorAll('[data-skey]')){
+      const r = S.data.Settings.find(x=>x.Key===el.dataset.skey);
+      if(r && r.Value!==el.value){ r.Value = el.value.trim(); await saveRecord('Settings', r); }
+    }
+    await loadTabs(['Settings']); renderAll(); toast('Settings saved');
+  }catch(e){ toast(e.message, true); }
+  busy(false);
+}
+function editCourier(name){
+  const c = name ? (S.data.Couriers||[]).find(x=>x.Courier===name) : {Courier:'',Match_Keywords:'',Active:'Yes'};
+  S.courierEdit = {...c};
+  modal(name?`Edit ${name}`:'Add courier', `
+    <div class="grid">
+      <div class="f"><label>Courier name</label><input class="inp" id="co_name" value="${esc(c.Courier)}" ${name?'disabled':''}></div>
+      <div class="f"><label>Active</label><select class="inp" id="co_active">${opts(['Yes','No'], c.Active||'Yes')}</select></div>
+      <div class="f full"><label>Match keywords (comma separated)</label><input class="inp" id="co_kw" value="${esc(c.Match_Keywords)}" placeholder="e.g. ekart, flipkart"></div>
+      <div class="f"><label>Contact person</label><input class="inp" id="co_cp" value="${esc(c.Contact_Person)}"></div>
+      <div class="f"><label>Email</label><input class="inp" id="co_em" value="${esc(c.Email)}"></div>
+      <div class="f"><label>Phone</label><input class="inp" id="co_ph" value="${esc(c.Phone)}"></div>
+      <div class="f"><label>Default reverse pickup cost (₹)</label><input class="inp" id="co_cost" value="${esc(c.Default_Pickup_Cost)}"></div>
+      <div class="f full small muted">The shared sheet link is filled by the Apps Script when you run "Create missing courier sheets".</div>
+    </div>`,
+    `<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveCourier()">Save</button>`);
+}
+async function saveCourier(){
+  const c = S.courierEdit;
+  const isNew = !c._row;
+  if(isNew){ c.Courier = $('co_name').value.trim(); if(!c.Courier){ toast('Name required', true); return; } if(couriersList().includes(c.Courier)){ toast('That courier already exists', true); return; } }
+  c.Active = $('co_active').value; c.Match_Keywords = $('co_kw').value.trim(); c.Contact_Person = $('co_cp').value.trim(); c.Email = $('co_em').value.trim(); c.Phone = $('co_ph').value.trim(); c.Default_Pickup_Cost = $('co_cost').value.trim();
+  busy(true);
+  try{ if(isNew) await appendRecords('Couriers',[c]); else await saveRecord('Couriers', c); await loadTabs(['Couriers']); fillFilters(); closeModal(); renderAll(); toast('Courier saved'); }
+  catch(e){ toast(e.message, true); }
+  busy(false);
+}
+
+/* ================= MODAL ================= */
+function modal(title, body, foot){
+  $('modal').innerHTML = `<div class="mh">${esc(title)}<button class="x" onclick="closeModal()">×</button></div><div class="mb">${body}</div><div class="mf">${foot||''}</div>`;
+  $('modalBack').style.display = 'flex';
+}
+function closeModal(){ $('modalBack').style.display = 'none'; $('modal').innerHTML = ''; }
+document.addEventListener('keydown', e => { if(e.key==='Escape'){ if($('modalBack').style.display==='flex') closeModal(); else if($('drawer').classList.contains('open')) closeDrawer(); } });
+
+waitForGoogle();
+</script>
+</body>
+</html>
