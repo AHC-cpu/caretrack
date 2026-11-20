@@ -62,6 +62,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:#f6f9fc}
 .p-blue{background:var(--accentbg);color:var(--accent2)}.p-green{background:var(--greenbg);color:var(--green)}
 .p-amber{background:var(--amberbg);color:var(--amber)}.p-red{background:var(--redbg);color:var(--red)}
 .p-purple{background:var(--purplebg);color:var(--purple)}.p-grey{background:var(--greybg);color:var(--grey)}
+.p-orange{background:#fdecdf;color:#b4531a}
 .muted{color:var(--muted)}.small{font-size:12px}.nowrap{white-space:nowrap}.b{font-weight:600}
 .clip{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* login */
@@ -167,6 +168,8 @@ tr.click{cursor:pointer}tr.click:hover td{background:#f6f9fc}
       <select class="inp" id="cIssue" onchange="renderComplaints()"></select>
       <select class="inp" id="cChannel" onchange="renderComplaints()"></select>
       <select class="inp" id="cCourier" onchange="renderComplaints()"></select>
+      <select class="inp" id="cResolution" onchange="renderComplaints()"></select>
+      <select class="inp" id="cPending" onchange="renderComplaints()"></select>
       <button class="btn primary" onclick="openNewTicket()">+ New complaint</button>
     </div>
     <div class="tablewrap" id="cTable"></div>
@@ -255,8 +258,8 @@ tr.click{cursor:pointer}tr.click:hover td{background:#f6f9fc}
 <script>
 /* ================= CONFIG ================= */
 const APP_CONFIG = {
-  CLIENT_ID: '384819479202-rrct383pmcd94an9jrjdlco084nv7gil.apps.googleusercontent.com',
-  SHEET_ID: '1eCSbiNvz214r8MSqr8sPw_z-ctjP9XA9m_V2EtH97T8'
+  CLIENT_ID: 'PASTE_YOUR_OAUTH_CLIENT_ID.apps.googleusercontent.com',
+  SHEET_ID: 'PASTE_YOUR_GOOGLE_SHEET_ID'
 };
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email';
 const BASE = () => `https://sheets.googleapis.com/v4/spreadsheets/${APP_CONFIG.SHEET_ID}`;
@@ -267,7 +270,7 @@ const SCHEMA = {
     'Issue_Type','Priority','Status','Assigned_To','Courier','AWB','Delivered_On','Courier_Outcome','Reship_Offered','Customer_Choice',
     'Reship_AWB','Follow_Up_Date','Return_Approved','Return_Window_Override','Product_Price','Pickup_Cost','Pickup_Decision','Pickup_AWB',
     'Item_Received','Item_Received_On','Refund_Amount','Refund_Status','Refund_Date','Refund_Mode','Refund_Ref','Resolution_Summary',
-    'Closed_At','Updated_At','Updated_By'],
+    'Closed_At','Updated_At','Updated_By','Resolution_Type','Proof_Received'],
   Ticket_Notes: ['Note_ID','Ticket_ID','Timestamp','By','Type','Note'],
   Courier_Cases: ['Case_ID','Ticket_ID','Courier','Case_Type','Order_No','AWB','Customer_Name','Phone','Pickup_Address','City','Pincode',
     'Our_Request','Raised_On','Raised_By','Case_Status','Closed_On','Courier_Status','Courier_Update','Courier_Ref','Expected_Date',
@@ -281,13 +284,15 @@ const SCHEMA = {
 };
 const ID_FIELD = {Tickets:'Ticket_ID',Ticket_Notes:'Note_ID',Courier_Cases:'Case_ID',Orders:'Order_ID',Templates:'Template_ID',Couriers:'Courier',Settings:'Key'};
 
-const ISSUE = {DELAY:'Not Received / Delay', DISLIKE:"Didn't Like Product", WRONG:'Wrong Product Sent', OTHER:'Other'};
+const ISSUE = {DELAY:'Not Received / Delay', DISLIKE:"Didn't Like Product", WRONG:'Wrong Product Sent', DAMAGE:'Damaged Product Received', OTHER:'Other'};
 const ISSUES = Object.values(ISSUE);
+const RESOLUTIONS = ['Refund','Partial refund','Replacement','Send correct product','Re-ship (lost parcel)','Coupon / store credit','Customer will wait','Delivered / no action','Rejected / no action'];
+const PENDING_GROUPS = ['Our action','Waiting on courier','Waiting on customer','Refund pending','Ready to close'];
 const STATUSES = ['New','In Progress','Waiting on Courier','Waiting on Customer','Resolved','Closed'];
 const CHANNELS = ['WhatsApp','Email','Instagram','Call','Other'];
 const PRIORITIES = ['Normal','High','Urgent'];
-const CASE_TYPES = ['Delay / Not Delivered','Reverse Pickup'];
-const COURIER_STATUSES = ['','Investigating','In transit','Out for delivery','Delivered','Lost','RTO initiated','Pickup scheduled','Pickup done','Pickup failed','Other'];
+const CASE_TYPES = ['Delay / Not Delivered','Reverse Pickup','Damage Claim'];
+const COURIER_STATUSES = ['','Investigating','In transit','Out for delivery','Delivered','Lost','RTO initiated','Pickup scheduled','Pickup done','Pickup failed','Claim accepted','Claim rejected','Other'];
 const OUTCOMES = ['','Courier checking','Delivered','Customer asked to wait','Parcel lost','RTO / Returned to us'];
 const REFUND_STATUS = ['','Not needed','Pending','Done'];
 const REFUND_MODES = ['','Original payment (Shopify)','UPI','Bank transfer','Store credit / coupon'];
@@ -335,6 +340,16 @@ const DEFAULT_TEMPLATES = [
  ['Wrong product: no need to return',ISSUE.WRONG,'Hindi',"नमस्ते {{name}}, ऑर्डर {{order_no}} के लिए ₹{{refund_amount}} का रिफंड कर दिया गया है। आपको मिला हुआ प्रोडक्ट वापस भेजने की ज़रूरत नहीं है। गड़बड़ी के लिए फिर से माफ़ी।\n\n{{signature}}"],
  ['Wrong product: pickup arranged',ISSUE.WRONG,'English',"Hi {{name}}, we've arranged a pickup of the wrong item from order {{order_no}}. The courier will contact you in the next 2-3 working days. Sorry again for the trouble.\n\n{{signature}}"],
  ['Wrong product: pickup arranged',ISSUE.WRONG,'Hindi',"नमस्ते {{name}}, ऑर्डर {{order_no}} के गलत प्रोडक्ट का पिकअप बुक कर दिया गया है। कूरियर अगले 2-3 कार्य दिवसों में आपसे संपर्क करेगा। परेशानी के लिए फिर से माफ़ी।\n\n{{signature}}"]
+];
+const DAMAGE_TEMPLATES = [
+ ['Damaged: sorry, share photos',ISSUE.DAMAGE,'English',"Hi {{name}}, we're really sorry your order {{order_no}} reached you damaged. Could you send us a few clear photos of the product and the outer box, and an unboxing video if you have one? We'll sort it out as soon as we see them.\n\n{{signature}}"],
+ ['Damaged: sorry, share photos',ISSUE.DAMAGE,'Hindi',"नमस्ते {{name}}, हमें बहुत खेद है कि आपका ऑर्डर {{order_no}} खराब हालत में पहुँचा। कृपया प्रोडक्ट और बाहरी डिब्बे की कुछ साफ फोटो भेजें, और अगर अनबॉक्सिंग वीडियो हो तो वह भी। देखते ही हम इसका समाधान करेंगे।\n\n{{signature}}"],
+ ['Damaged: replacement sent',ISSUE.DAMAGE,'English',"Hi {{name}}, we've sent a replacement for the damaged item in order {{order_no}}. The tracking number is {{reship_awb}}. Sorry again for the trouble.\n\n{{signature}}"],
+ ['Damaged: replacement sent',ISSUE.DAMAGE,'Hindi',"नमस्ते {{name}}, ऑर्डर {{order_no}} के खराब प्रोडक्ट की जगह हमने नया प्रोडक्ट भेज दिया है। ट्रैकिंग नंबर {{reship_awb}} है। परेशानी के लिए फिर से माफ़ी।\n\n{{signature}}"],
+ ['Damaged: refund processed',ISSUE.DAMAGE,'English',"Hi {{name}}, we've processed a refund of ₹{{refund_amount}} for the damaged item in order {{order_no}}. It usually shows in your account within 5-7 working days, depending on your bank. Sorry again.\n\n{{signature}}"],
+ ['Damaged: refund processed',ISSUE.DAMAGE,'Hindi',"नमस्ते {{name}}, ऑर्डर {{order_no}} के खराब प्रोडक्ट के लिए ₹{{refund_amount}} का रिफंड कर दिया गया है। बैंक के अनुसार यह आमतौर पर 5-7 कार्य दिवसों में आपके खाते में आ जाता है। फिर से माफ़ी।\n\n{{signature}}"],
+ ['Damaged: pickup arranged',ISSUE.DAMAGE,'English',"Hi {{name}}, we've arranged a pickup of the damaged item from order {{order_no}}. The courier will contact you in the next 2-3 working days. Please keep it packed and ready.\n\n{{signature}}"],
+ ['Damaged: pickup arranged',ISSUE.DAMAGE,'Hindi',"नमस्ते {{name}}, ऑर्डर {{order_no}} के खराब प्रोडक्ट का पिकअप बुक कर दिया गया है। कूरियर अगले 2-3 कार्य दिवसों में आपसे संपर्क करेगा। कृपया प्रोडक्ट पैक करके तैयार रखें।\n\n{{signature}}"]
 ];
 const TEMPLATE_VARS = ['name','order_no','ticket_id','product','awb','courier','tracking_link','expected_date','reship_awb','refund_amount','delivered_on','return_days','store','signature'];
 
@@ -525,7 +540,14 @@ async function seedDefaults(){
     await appendRecords('Templates', DEFAULT_TEMPLATES.map((t,i) => ({Template_ID:'TPL-'+String(i+1).padStart(3,'0'), Name:t[0], Flow:t[1], Language:t[2], Body:t[3]})));
     reload.push('Templates');
   }
-  if(reload.length) await loadTabs(reload);
+  if(!haveKeys.has('TEMPLATE_PACK_DAMAGE')){
+    const have = new Set((S.data.Templates||[]).map(t => t.Name+'|'+t.Language));
+    const add = DAMAGE_TEMPLATES.map((t,i) => ({Template_ID:'TPL-D'+String(i+1).padStart(2,'0'), Name:t[0], Flow:t[1], Language:t[2], Body:t[3]})).filter(t => !have.has(t.Name+'|'+t.Language));
+    if(add.length){ await appendRecords('Templates', add); reload.push('Templates'); }
+    await appendRecords('Settings', [{Key:'TEMPLATE_PACK_DAMAGE', Value:'added', Notes:'Damage reply templates were added once. Delete this row to add them again.'}]);
+    reload.push('Settings');
+  }
+  if(reload.length) await loadTabs([...new Set(reload)]);
 }
 async function refreshAll(){
   busy(true);
@@ -554,6 +576,8 @@ function fillFilters(){
   set('cStatus', `<option value="__open">Open (not closed)</option><option value="__overdue">Overdue</option><option value="">All statuses</option>` + STATUSES.map(s=>`<option>${esc(s)}</option>`).join(''));
   set('cIssue', `<option value="">All issue types</option>` + ISSUES.map(s=>`<option>${esc(s)}</option>`).join(''));
   set('cChannel', `<option value="">All channels</option>` + CHANNELS.map(s=>`<option>${esc(s)}</option>`).join(''));
+  set('cResolution', `<option value="">All resolutions</option>` + RESOLUTIONS.map(s=>`<option>${esc(s)}</option>`).join('') + `<option value="__none">Resolution not set</option>`);
+  set('cPending', `<option value="">Any pending step</option>` + PENDING_GROUPS.map(s=>`<option>${esc(s)}</option>`).join(''));
   set('cCourier', `<option value="">All couriers</option>` + couriersList().map(s=>`<option>${esc(s)}</option>`).join('') + `<option value="__none">No courier set</option>`);
   set('ccCourier', `<option value="">All couriers</option>` + couriersList().map(s=>`<option>${esc(s)}</option>`).join(''));
   set('ccType', `<option value="">All case types</option>` + CASE_TYPES.map(s=>`<option>${esc(s)}</option>`).join(''));
@@ -596,7 +620,7 @@ function statusPill(s){
   return `<span class="pill ${m[s]||'p-grey'}">${esc(s||'—')}</span>`;
 }
 function issuePill(s){
-  const m = {[ISSUE.DELAY]:'p-amber',[ISSUE.DISLIKE]:'p-purple',[ISSUE.WRONG]:'p-red'};
+  const m = {[ISSUE.DELAY]:'p-amber',[ISSUE.DISLIKE]:'p-purple',[ISSUE.WRONG]:'p-red',[ISSUE.DAMAGE]:'p-orange'};
   return `<span class="pill ${m[s]||'p-grey'}">${esc(s||'—')}</span>`;
 }
 function caseStale(c){
@@ -605,6 +629,105 @@ function caseStale(c){
   return h!=null && h >= settingNum('COURIER_NO_UPDATE_HOURS',48);
 }
 function isOverdue(t){ return t.Status!=='Closed' && (hoursSince(t.Created_At)||0) >= settingNum('TICKET_RED_HOURS',48); }
+
+/* ---------- Resolution (auto-filled from the flow, can be changed by hand) ---------- */
+function autoResolution(t){
+  const c = t.Customer_Choice;
+  switch(t.Issue_Type){
+    case ISSUE.DELAY:
+      if(c==='Re-ship') return 'Re-ship (lost parcel)';
+      if(c==='Refund') return 'Refund';
+      if(t.Courier_Outcome==='Customer asked to wait') return 'Customer will wait';
+      if(t.Courier_Outcome==='Delivered') return 'Delivered / no action';
+      return '';
+    case ISSUE.DISLIKE: return t.Return_Approved==='Yes' ? 'Refund' : t.Return_Approved==='No' ? 'Rejected / no action' : '';
+    case ISSUE.WRONG: return c==='Refund' ? 'Refund' : c==='Send correct item' ? 'Send correct product' : '';
+    case ISSUE.DAMAGE: return ({'Replacement':'Replacement','Refund':'Refund','Partial refund':'Partial refund','Coupon / store credit':'Coupon / store credit'})[c] || '';
+  }
+  return '';
+}
+function applyAutoResolution(t, before){
+  const a = autoResolution(t);
+  if(a && (!t.Resolution_Type || t.Resolution_Type===autoResolution(before||{}))) t.Resolution_Type = a;
+}
+function resolutionPill(r){
+  if(!r) return '<span class="muted">—</span>';
+  const m = {'Refund':'p-orange','Partial refund':'p-orange','Replacement':'p-blue','Send correct product':'p-blue','Re-ship (lost parcel)':'p-blue','Coupon / store credit':'p-purple','Customer will wait':'p-amber'};
+  return `<span class="pill ${m[r]||'p-grey'}">${esc(r)}</span>`;
+}
+
+/* ---------- Pending: what is left to do on a ticket, worked out from its state ---------- */
+function pendingFor(t){
+  const P = (text, group, red) => ({text, group, red:!!red});
+  if(t.Status==='Closed') return P('—','Closed');
+  const all = ticketCases(t.Ticket_ID), open = all.filter(c=>c.Case_Status!=='Closed');
+  const waitCase = type => { const c = open.find(c=>c.Case_Type===type && !c.Courier_Status && !c.Courier_Update); return c ? P(`Waiting on ${c.Courier} reply (${ageLabel(hoursSince(c.Raised_On))})`, 'Waiting on courier', caseStale(c)) : null; };
+  const refundDue = () => t.Refund_Status!=='Done' && t.Refund_Status!=='Not needed';
+  const refund = () => { const a = rupee(t.Refund_Amount); return P(a ? `Refund ${a} pending` : 'Refund pending', 'Refund pending', true); };
+  const ready = P('Ready to close','Ready to close');
+  const pickupFlow = () => {
+    if(!all.some(c=>c.Case_Type==='Reverse Pickup') && !t.Pickup_AWB) return P('Request reverse pickup','Our action');
+    if(t.Item_Received!=='Yes'){ const pc = open.find(c=>c.Case_Type==='Reverse Pickup'); return P(pc && !pc.Courier_Status && !pc.Courier_Update ? `Waiting for item back (no ${pc.Courier} reply yet)` : 'Waiting for item to come back', 'Waiting on courier', pc && caseStale(pc)); }
+    return null;
+  };
+  switch(t.Issue_Type){
+    case ISSUE.DELAY: {
+      const oc = t.Courier_Outcome;
+      if(!oc || oc==='Courier checking'){
+        if(!all.some(c=>c.Case_Type==='Delay / Not Delivered')) return P('Raise courier case','Our action');
+        return waitCase('Delay / Not Delivered') || P('Courier replied: set outcome','Our action');
+      }
+      if(oc==='Customer asked to wait'){
+        if(!t.Follow_Up_Date) return P('Set follow-up date','Our action');
+        const due = t.Follow_Up_Date <= today();
+        return due ? P(`Follow up now (due ${t.Follow_Up_Date})`,'Our action',true) : P(`Follow up on ${t.Follow_Up_Date}`,'Waiting on customer');
+      }
+      if(oc==='Delivered') return ready;
+      if(t.Reship_Offered!=='Yes') return P('Ask customer: re-ship or refund','Our action');
+      if(!t.Customer_Choice || t.Customer_Choice==='Waiting for reply') return P('Waiting for customer to choose','Waiting on customer');
+      if(t.Customer_Choice==='Re-ship' && !t.Reship_AWB) return P('Send new parcel, enter AWB','Our action');
+      if(t.Customer_Choice==='Refund' && refundDue()) return refund();
+      return ready;
+    }
+    case ISSUE.DISLIKE: {
+      if(!t.Return_Approved){
+        const rw = returnWindow(t);
+        if(rw.state==='missing') return P('Enter delivered date','Our action');
+        return P(rw.state==='out' && t.Return_Window_Override!=='Yes' ? 'Outside window: approve or reject' : 'Approve or reject return','Our action');
+      }
+      if(t.Return_Approved==='No') return P('Reply to customer and close','Ready to close');
+      return pickupFlow() || (refundDue() ? refund() : ready);
+    }
+    case ISSUE.WRONG: {
+      if(!t.Customer_Choice) return P('Choose refund or correct product','Our action');
+      if(t.Customer_Choice==='Send correct item' && !t.Reship_AWB) return P('Send correct product, enter AWB','Our action');
+      if(t.Customer_Choice==='Refund' && refundDue()) return refund();
+      if(!t.Pickup_Decision) return P('Decide: pickup or close','Our action');
+      if(t.Pickup_Decision==='Arrange pickup'){ const pf = pickupFlow(); if(pf) return pf; }
+      return ready;
+    }
+    case ISSUE.DAMAGE: {
+      if(t.Proof_Received!=='Yes') return P('Ask customer for photos / video','Our action');
+      if(!t.Customer_Choice) return P('Choose resolution','Our action');
+      if(t.Customer_Choice==='Replacement' && !t.Reship_AWB) return P('Send replacement, enter AWB','Our action');
+      if(t.Customer_Choice!=='Replacement' && refundDue()) return t.Customer_Choice.startsWith('Coupon') ? P('Send coupon, mark it done','Refund pending',true) : refund();
+      if(!t.Pickup_Decision) return P('Decide: pickup or close','Our action');
+      if(t.Pickup_Decision==='Arrange pickup'){ const pf = pickupFlow(); if(pf) return pf; }
+      return ready;
+    }
+    default: {
+      const w = open.map(c=>waitCase(c.Case_Type)).find(Boolean); if(w) return w;
+      if(t.Refund_Status==='Pending') return refund();
+      return P('Update or close','Our action');
+    }
+  }
+}
+function pendingPill(t){
+  const p = pendingFor(t);
+  if(p.group==='Closed') return '<span class="muted">—</span>';
+  const m = {'Our action':'p-blue','Waiting on courier':'p-amber','Waiting on customer':'p-purple','Refund pending':'p-red','Ready to close':'p-green'};
+  return `<span class="pill ${p.red?'p-red':(m[p.group]||'p-grey')}" title="${esc(p.group)}">${esc(p.text)}</span>`;
+}
 
 /* ================= COMPLAINTS TAB ================= */
 function renderComplaints(){
@@ -617,10 +740,11 @@ function renderComplaints(){
     ['Overdue (over '+settingNum('TICKET_RED_HOURS',48)+'h)', open.filter(isOverdue).length, open.filter(isOverdue).length?'red':''],
     ['Waiting on courier', open.filter(t=>t.Status==='Waiting on Courier').length, 'amber'],
     ['Follow-ups due today', open.filter(t=>t.Follow_Up_Date && t.Follow_Up_Date<=today()).length, 'amber'],
-    ['Refunds pending', `${pendRef.length} · ${rupee(pendRef.reduce((a,t)=>a+(num(t.Refund_Amount)||0),0))||'₹0'}`, pendRef.length?'red':'']
+    ['Refunds pending', `${pendRef.length} · ${rupee(pendRef.reduce((a,t)=>a+(num(t.Refund_Amount)||0),0))||'₹0'}`, pendRef.length?'red':''],
+    ['Ready to close', open.filter(t=>pendingFor(t).group==='Ready to close').length, 'green']
   ].map(k=>`<div class="kpi ${k[2]}"><div class="l">${esc(k[0])}</div><div class="v">${esc(k[1])}</div></div>`).join('');
 
-  const q = $('cSearch').value.trim().toLowerCase(), st = $('cStatus').value, is = $('cIssue').value, ch = $('cChannel').value, co = $('cCourier').value;
+  const q = $('cSearch').value.trim().toLowerCase(), st = $('cStatus').value, is = $('cIssue').value, ch = $('cChannel').value, co = $('cCourier').value, rs = $('cResolution').value, pd = $('cPending').value;
   let rows = T.filter(t => {
     if(st==='__open' && t.Status==='Closed') return false;
     if(st==='__overdue' && !isOverdue(t)) return false;
@@ -629,17 +753,19 @@ function renderComplaints(){
     if(ch && t.Channel!==ch) return false;
     if(co==='__none' && t.Courier) return false;
     if(co && co!=='__none' && t.Courier!==co) return false;
+    if(rs==='__none' && t.Resolution_Type) return false;
+    if(rs && rs!=='__none' && t.Resolution_Type!==rs) return false;
+    if(pd && pendingFor(t).group!==pd) return false;
     if(q){ const hay = [t.Ticket_ID,t.Customer_Name,t.Phone,t.Order_No,t.AWB,t.Product,t.Email,t.Pickup_AWB,t.Reship_AWB].join(' ').toLowerCase(); if(!hay.includes(q)) return false; }
     return true;
   }).sort((a,b) => (a.Created_At<b.Created_At?1:-1));
   if(!rows.length){ $('cTable').innerHTML = `<div class="empty">${T.length?'No complaints match these filters.':'No complaints yet. Click "+ New complaint" to log the first one.'}</div>`; return; }
-  $('cTable').innerHTML = `<table><thead><tr><th>Ticket</th><th>Age</th><th>Customer</th><th>Order</th><th>Issue</th><th>Status</th><th>Courier case</th><th>Assigned</th><th>Refund</th><th>Follow-up</th></tr></thead><tbody>${
+  $('cTable').innerHTML = `<table><thead><tr><th>Ticket</th><th>Age</th><th>Customer</th><th>Order</th><th>Issue</th><th>Status</th><th>Resolution</th><th>Pending</th><th>Courier case</th><th>Assigned</th><th>Refund</th></tr></thead><tbody>${
     rows.map(t => {
       const cs = ticketCases(t.Ticket_ID).filter(c=>c.Case_Status!=='Closed');
       const csTxt = cs.length ? cs.map(c => `<span class="pill ${caseStale(c)?'p-red':'p-amber'}">${esc(c.Courier)}: ${esc(c.Courier_Status||'no reply')}</span>`).join(' ') : '<span class="muted">—</span>';
       const ref = t.Refund_Status==='Pending' ? `<span class="pill p-red">Pending ${esc(rupee(t.Refund_Amount))}</span>` : t.Refund_Status==='Done' ? `<span class="pill p-green">Done ${esc(rupee(t.Refund_Amount))}</span>` : '<span class="muted">—</span>';
-      const fu = t.Follow_Up_Date ? `<span class="pill ${t.Follow_Up_Date<=today()&&t.Status!=='Closed'?'p-red':'p-grey'}">${esc(t.Follow_Up_Date)}</span>` : '';
-      return `<tr class="click" onclick="openTicket('${esc(t.Ticket_ID)}')"><td class="b nowrap">${esc(t.Ticket_ID)}<div class="muted small">${esc(t.Channel)}</div></td><td>${ticketAgePill(t)}</td><td>${esc(t.Customer_Name)}<div class="muted small">${esc(t.Phone)}</div></td><td class="nowrap">${esc(t.Order_No)}<div class="muted small clip">${esc(t.Product)}</div></td><td>${issuePill(t.Issue_Type)}</td><td>${statusPill(t.Status)}</td><td>${csTxt}</td><td>${esc(t.Assigned_To)}</td><td>${ref}</td><td>${fu}</td></tr>`;
+      return `<tr class="click" onclick="openTicket('${esc(t.Ticket_ID)}')"><td class="b nowrap">${esc(t.Ticket_ID)}<div class="muted small">${esc(t.Channel)}</div></td><td>${ticketAgePill(t)}</td><td>${esc(t.Customer_Name)}<div class="muted small">${esc(t.Phone)}</div></td><td class="nowrap">${esc(t.Order_No)}<div class="muted small clip">${esc(t.Product)}</div></td><td>${issuePill(t.Issue_Type)}</td><td>${statusPill(t.Status)}</td><td>${resolutionPill(t.Resolution_Type)}</td><td>${pendingPill(t)}</td><td>${csTxt}</td><td>${esc(t.Assigned_To)}</td><td>${ref}</td></tr>`;
     }).join('')}</tbody></table>`;
 }
 
@@ -737,7 +863,9 @@ function collectForm(){
   document.querySelectorAll('#drawer [data-f]').forEach(el => { S.edit[el.dataset.f] = el.type==='checkbox' ? (el.checked?'Yes':'') : el.value; });
 }
 function onField(el){
+  const before = {...S.edit};
   collectForm();
+  if(el.dataset.f!=='Resolution_Type') applyAutoResolution(S.edit, before);
   if(el.dataset.f==='Item_Received' && el.checked && !S.edit.Item_Received_On) S.edit.Item_Received_On = today();
   if(el.dataset.f==='Courier' && !S.edit.Pickup_Cost){ const c = courierRec(S.edit.Courier); if(c && c.Default_Pickup_Cost) S.edit.Pickup_Cost = c.Default_Pickup_Cost; }
   if(el.dataset.rr){ const sc = document.querySelector('#drawer .dbody'); const top = sc?sc.scrollTop:0; renderDrawer(); const sc2 = document.querySelector('#drawer .dbody'); if(sc2) sc2.scrollTop = top; }
@@ -816,6 +944,30 @@ function flowHTML(t){
     }
     return h;
   }
+  if(t.Issue_Type===ISSUE.DAMAGE){
+    const price = num(t.Product_Price), cost = num(t.Pickup_Cost);
+    const claimCases = cases.filter(c=>c.Case_Type==='Damage Claim');
+    const ch = t.Customer_Choice || '';
+    let h = stepsHTML([['Complaint logged',true],['Proof received',t.Proof_Received==='Yes'],['Resolution chosen',!!ch],['Pickup decided',!!t.Pickup_Decision],['Replacement / refund done', ch==='Replacement' ? !!t.Reship_AWB : t.Refund_Status==='Done'],['Closed',closed]]);
+    h += `<div class="grid">${fld('Photos / unboxing video received from customer','Proof_Received','check',{rr:1,full:1})}</div>`;
+    if(t.Proof_Received!=='Yes') h += `<div class="note n-warn">Ask the customer for clear photos of the product and the outer box, and an unboxing video if they have one, before deciding. The "Damaged: sorry, share photos" template is in Reply to customer.</div>`;
+    const cr = courierRec(t.Courier);
+    h += `<div class="grid" style="margin-top:8px">${fld('Resolution for customer','Customer_Choice','select',{options:['','Replacement','Refund','Partial refund','Coupon / store credit'],rr:1})}`;
+    if(ch==='Replacement') h += fld('Replacement AWB','Reship_AWB');
+    h += fld('Product price (₹)','Product_Price','text',{rr:1}) + fld('Reverse pickup cost (₹)','Pickup_Cost','text',{rr:1,ph: cr&&cr.Default_Pickup_Cost?'default '+cr.Default_Pickup_Cost:'enter cost'}) + `</div>`;
+    if(/refund|coupon/i.test(ch)) h += `<div class="note n-info">Fill the refund section below${ch.startsWith('Coupon')?' and pick "Store credit / coupon" as the mode':''}.</div>`;
+    if(price!=null && cost!=null){
+      h += cost > price ? `<div class="note n-warn">Suggestion: close without pickup. Pickup costs ${rupee(cost)}, which is more than the product (${rupee(price)}).</div>`
+                        : `<div class="note n-info">Suggestion: arrange pickup. Pickup costs ${rupee(cost)}, product is worth ${rupee(price)}.</div>`;
+    } else h += `<div class="note n-info">Enter product price and pickup cost to get a pickup suggestion.</div>`;
+    h += `<div class="grid">${fld('Pickup decision','Pickup_Decision','select',{options:['','Arrange pickup','Close without pickup'],rr:1})}</div>`;
+    if(t.Pickup_Decision==='Arrange pickup'){
+      h += `<div style="margin:10px 0"><button class="btn primary sm" onclick="openCaseModal('Reverse Pickup')">${cases.some(c=>c.Case_Type==='Reverse Pickup')?'Request another pickup':'Request reverse pickup'}</button></div>`;
+      h += `<div class="grid">${fld('Pickup AWB','Pickup_AWB')}${fld('Item received back at our end','Item_Received','check',{rr:1})}${t.Item_Received==='Yes'?fld('Received on','Item_Received_On','date'):''}</div>`;
+    }
+    h += `<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line2)"><div class="small muted" style="margin-bottom:6px">Optional: if the parcel was damaged in transit, you can claim it from the courier. It doesn't hold up closing the ticket.</div><button class="btn sm" onclick="openCaseModal('Damage Claim')">${claimCases.length?'Raise another damage claim':'Raise damage claim with courier'}</button></div>`;
+    return h;
+  }
   return `<div class="note n-info">General complaint. Use notes, a courier case if needed, and the refund section.</div><div style="margin-bottom:6px"><button class="btn sm" onclick="openCaseModal('Delay / Not Delivered')">Raise courier case</button> <button class="btn sm" onclick="openCaseModal('Reverse Pickup')">Request pickup</button></div>`;
 }
 function renderDrawer(){
@@ -834,6 +986,8 @@ function renderDrawer(){
       ${fld('Priority','Priority','select',{options:PRIORITIES})}
       ${fld('Assigned to','Assigned_To','text',{list:'teamList2'})}
       ${fld('Channel','Channel','select',{options:CHANNELS})}
+      ${fld('Resolution','Resolution_Type','select',{options:[''].concat(RESOLUTIONS, t.Resolution_Type && !RESOLUTIONS.includes(t.Resolution_Type) ? [t.Resolution_Type] : [])})}
+      <div class="full small"><span class="muted">Pending:</span> ${pendingPill(t)}</div>
     </div><datalist id="teamList2">${team().map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div>
 
     <div class="sec"><h4>Customer &amp; order ${o?`<span class="small muted" style="font-weight:400">${esc(o.Payment_Type)} · ${esc(o.Order_Date)}${trk}</span>`:''}</h4><div class="in grid">
@@ -891,13 +1045,16 @@ function systemNotesFor(o, t){
   if(o.Item_Received!==t.Item_Received && t.Item_Received==='Yes') add(`Item received back on ${t.Item_Received_On}`);
   if(o.Refund_Status!==t.Refund_Status && t.Refund_Status) add(`Refund ${t.Refund_Status.toLowerCase()}${t.Refund_Amount?' ('+rupee(t.Refund_Amount)+')':''}`);
   if(o.Reship_AWB!==t.Reship_AWB && t.Reship_AWB) add(`New parcel sent, AWB ${t.Reship_AWB}`);
+  if(o.Proof_Received!==t.Proof_Received && t.Proof_Received==='Yes') add('Photos / video proof received');
+  if(o.Resolution_Type!==t.Resolution_Type && t.Resolution_Type) add(`Resolution: ${t.Resolution_Type}`);
   return out;
 }
 async function saveTicket(opts={}){
   collectForm();
   const t = S.edit, o = S.editOrig || {};
   if(t.Issue_Type===ISSUE.DISLIKE && t.Item_Received!=='Yes' && t.Refund_Status==='Done'){ toast('Refund can be marked Done only after the item is received back.', true); return false; }
-  if(t.Customer_Choice==='Refund' && !t.Refund_Status) t.Refund_Status = 'Pending';
+  if(/refund|coupon/i.test(t.Customer_Choice||'') && !t.Refund_Status) t.Refund_Status = 'Pending';
+  applyAutoResolution(t, o);
   if(t.Issue_Type===ISSUE.DISLIKE && t.Item_Received==='Yes' && !t.Refund_Status) t.Refund_Status = 'Pending';
   if(t.Refund_Status==='Done' && !t.Refund_Date) t.Refund_Date = today();
   if(t.Item_Received==='Yes' && !t.Item_Received_On) t.Item_Received_On = today();
@@ -966,10 +1123,11 @@ async function openCaseModal(type){
   const t = S.edit, o = findOrder(t.Order_No);
   const pickup = type==='Reverse Pickup';
   const defReq = pickup
-    ? (t.Issue_Type===ISSUE.WRONG ? 'Wrong item was delivered. Please arrange a reverse pickup from the customer address and share the pickup AWB.' : 'Customer wants to return the product. Please arrange a reverse pickup and share the pickup AWB.')
+    ? (t.Issue_Type===ISSUE.DAMAGE ? 'Customer received a damaged item. Please arrange a reverse pickup from the customer address and share the pickup AWB.' : t.Issue_Type===ISSUE.WRONG ? 'Wrong item was delivered. Please arrange a reverse pickup from the customer address and share the pickup AWB.' : 'Customer wants to return the product. Please arrange a reverse pickup and share the pickup AWB.')
+    : type==='Damage Claim' ? 'This shipment reached the customer damaged. Please register a damage claim. We can share photos of the product and packaging.'
     : 'Customer says the parcel has not been received. Please check the status urgently and share POD or expected delivery date.';
   const cr = courierRec(t.Courier);
-  modal(pickup?'Request reverse pickup':'Raise delay case with courier', `
+  modal(pickup?'Request reverse pickup':type==='Damage Claim'?'Raise damage claim with courier':'Raise delay case with courier', `
     ${t.Courier && cr && !cr.Sheet_ID ? `<div class="note n-warn">${esc(t.Courier)} has no shared sheet yet. The case is still saved here. Create the courier sheets from the Google Sheet menu (CareTrack → Create missing courier sheets) or send them the Excel export.</div>`:''}
     <div class="grid">
       <div class="f"><label>Courier partner</label><select class="inp" id="cm_courier">${opts([''].concat(couriersList()), t.Courier)}</select></div>
@@ -998,7 +1156,8 @@ async function createCase(){
       Pincode:$('cm_pin').value.trim(), Our_Request:$('cm_req').value.trim(), Raised_On:nowStr(), Raised_By:S.email, Case_Status:'Open'};
     await appendRecords('Courier_Cases', [c]);
     const fresh = (S.data.Tickets||[]).find(x=>x.Ticket_ID===t.Ticket_ID) || t;
-    const upd = {...fresh, Status:'Waiting on Courier'};
+    const upd = {...fresh};
+    if(c.Case_Type!=='Damage Claim') upd.Status = 'Waiting on Courier';
     if(!upd.Courier) upd.Courier = courier;
     await saveRecord('Tickets', upd, {force:true});
     await appendRecords('Ticket_Notes', [{Note_ID:randId('N'), Ticket_ID:t.Ticket_ID, Timestamp:nowStr(), By:S.email, Type:'system', Note:`${c.Case_Type} case ${id} raised with ${courier}`}]);
@@ -1250,6 +1409,8 @@ function renderDashboard(){
   const repeat = countBy(T.filter(t=>digits(t.Phone).length>=10), t => digits(t.Phone).slice(-10)).filter(p=>p[1]>1).map(([ph,n]) => { const t = T.find(x=>digits(x.Phone).slice(-10)===ph); return [`${t?t.Customer_Name:''} (${ph})`, n]; });
   $('dGrid').innerHTML =
     bars('Complaints by issue type', countBy(T, t=>t.Issue_Type)) +
+    bars('Complaints by resolution', countBy(T, t=>t.Resolution_Type||'Not set')) +
+    bars('Open tickets by pending step (right now)', countBy((S.data.Tickets||[]).filter(t=>t.Status!=='Closed'), t=>pendingFor(t).group)) +
     bars('Complaints by courier', countBy(T, t=>t.Courier||'Not set')) +
     bars('Complaints by product (top 10)', countBy(T, t=>t.Product||'Not set').slice(0,10)) +
     bars('Complaints by channel', countBy(T, t=>t.Channel)) +
@@ -1262,7 +1423,7 @@ function renderDashboard(){
 /* ================= SETTINGS ================= */
 function renderSettings(){
   if(!S.booted) return;
-  const rows = (S.data.Settings||[]).filter(r => !/^LAST_/.test(r.Key));
+  const rows = (S.data.Settings||[]).filter(r => !/^(LAST_|TEMPLATE_PACK)/.test(r.Key));
   $('setForm').innerHTML = rows.map(r => `<div class="f" style="margin-bottom:10px"><label>${esc(r.Key.replace(/_/g,' '))}</label><input class="inp" data-skey="${esc(r.Key)}" value="${esc(r.Value)}"><div class="small muted">${esc(r.Notes)}</div></div>`).join('') + `<button class="btn primary" onclick="saveSettings()">Save settings</button>`;
   $('connInfo').innerHTML = `Signed in as <b>${esc(S.email)}</b><br>Google Sheet: <a href="https://docs.google.com/spreadsheets/d/${esc(APP_CONFIG.SHEET_ID)}" target="_blank" rel="noopener">open sheet ↗</a><br>Last Shopify sync: ${esc(setting('LAST_ORDER_SYNC','never'))}<br>Last courier sync: ${esc(setting('LAST_COURIER_SYNC','never'))}<br><br><span class="muted">Shopify orders and courier sheets are synced by the Apps Script inside the Google Sheet every 30 minutes. To sync right away, open the sheet and use the CareTrack menu.</span>`;
   const C = S.data.Couriers || [];
