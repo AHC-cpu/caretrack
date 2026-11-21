@@ -599,6 +599,14 @@ function matchCourier(order){
   }
   return '';
 }
+/* One open ticket per order: a new ticket for an order is allowed only after its previous ticket is Closed. */
+function openTicketsForOrder(orderNo, excludeId){
+  const n = normOrder(orderNo); if(!n) return [];
+  return (S.data.Tickets||[]).filter(t => t.Status!=='Closed' && normOrder(t.Order_No)===n && t.Ticket_ID!==excludeId);
+}
+function dupText(list, orderNo){
+  return `Order ${String(orderNo).trim()} already has an open ticket: ${list.map(t=>`${t.Ticket_ID} (${t.Status||'New'})`).join(', ')}. Close that ticket before creating a new one for this order.`;
+}
 function courierRec(name){ return (S.data.Couriers||[]).find(c => c.Courier===name) || null; }
 function ticketCases(tid){ return (S.data.Courier_Cases||[]).filter(c => c.Ticket_ID===tid); }
 function ticketNotes(tid){ return (S.data.Ticket_Notes||[]).filter(n => n.Ticket_ID===tid).sort((a,b)=> a.Timestamp<b.Timestamp?1:-1); }
@@ -774,9 +782,10 @@ function openNewTicket(prefillOrderNo){
   const o = prefillOrderNo ? findOrder(prefillOrderNo) : null;
   modal('New complaint', `
     <div class="grid">
-      <div class="f"><label>Shopify order no.</label><div style="display:flex;gap:6px"><input class="inp" id="nt_order" value="${esc(o?o.Order_No:'')}" placeholder="#1234"><button class="btn" onclick="ntLookup()">Fetch</button></div></div>
+      <div class="f"><label>Shopify order no.</label><div style="display:flex;gap:6px"><input class="inp" id="nt_order" value="${esc(o?o.Order_No:'')}" placeholder="#1234" oninput="ntCheckDup()"><button class="btn" onclick="ntLookup()">Fetch</button></div></div>
       <div class="f"><label>Or find by phone</label><div style="display:flex;gap:6px"><input class="inp" id="nt_phoneq" placeholder="10-digit phone"><button class="btn" onclick="ntPhoneLookup()">Find</button></div></div>
       <div class="full" id="nt_msg"></div>
+      <div class="full" id="nt_dup"></div>
       <div class="f"><label>Channel</label><select class="inp" id="nt_channel">${opts(CHANNELS,'WhatsApp')}</select></div>
       <div class="f"><label>Issue type</label><select class="inp" id="nt_issue">${opts(ISSUES, ISSUE.DELAY)}</select></div>
       <div class="f"><label>Customer name</label><input class="inp" id="nt_name"></div>
@@ -788,19 +797,26 @@ function openNewTicket(prefillOrderNo){
       <div class="f"><label>Assigned to</label><input class="inp" id="nt_assign" list="teamList" value=""></div>
       <div class="f full"><label>What did the customer say?</label><textarea class="inp" id="nt_note" placeholder="e.g. Parcel not received, tracking shows in transit since 4 days"></textarea></div>
     </div><datalist id="teamList">${team().map(n=>`<option value="${esc(n)}">`).join('')}</datalist>`,
-    `<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="createTicket()">Create ticket</button>`);
+    `<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" id="nt_create" onclick="createTicket()">Create ticket</button>`);
   if(o) ntFill(o);
 }
 function ntFill(o){
-  $('nt_order').value = o.Order_No; $('nt_name').value = o.Customer_Name; $('nt_phone').value = o.Phone; $('nt_email').value = o.Email;
-  $('nt_product').value = o.Items; $('nt_value').value = o.Order_Value;
-  const ex = (S.data.Tickets||[]).filter(t => normOrder(t.Order_No)===normOrder(o.Order_No) && t.Status!=='Closed');
+  $('nt_order').value = o.Order_No||''; $('nt_name').value = o.Customer_Name||''; $('nt_phone').value = o.Phone||''; $('nt_email').value = o.Email||'';
+  $('nt_product').value = o.Items||''; $('nt_value').value = o.Order_Value||'';
   const pr = isProblemOrder(o);
   $('nt_msg').innerHTML = `<div class="note n-ok">Order found: ${esc(o.Order_No)} · ${esc(o.Order_Date)} · ${esc(o.Payment_Type)} · ${esc(o.Courier_Company||'no courier yet')} ${esc(o.AWB||'')} · ${esc((o.Shipment_Status||o.Fulfillment_Status||'').replace(/_/g,' '))}</div>`
-    + (pr ? `<div class="note n-warn">Problem order: ${esc(pr)}</div>` : '')
-    + (ex.length ? `<div class="note n-bad">This order already has an open ticket: ${ex.map(t=>esc(t.Ticket_ID)).join(', ')}. Check it before creating a new one.</div>` : '');
+    + (pr ? `<div class="note n-warn">Problem order: ${esc(pr)}</div>` : '');
+  ntCheckDup();
 }
-function ntLookup(){ const o = findOrder($('nt_order').value); if(o) ntFill(o); else $('nt_msg').innerHTML = `<div class="note n-warn">Order not found in synced orders. You can still fill the details by hand. If the order is new, run the Shopify sync from the Google Sheet.</div>`; }
+function ntCheckDup(){
+  const box = $('nt_dup'), btn = $('nt_create'); if(!box) return;
+  const list = openTicketsForOrder($('nt_order').value);
+  if(list.length){
+    box.innerHTML = `<div class="note n-bad"><b>Can't create a new ticket.</b> ${esc(dupText(list, $('nt_order').value))}<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${list.map(t=>`<button class="btn sm" onclick="closeModal();openTicket('${esc(t.Ticket_ID)}')">Open ${esc(t.Ticket_ID)}</button>`).join('')}</div></div>`;
+    if(btn) btn.disabled = true;
+  } else { box.innerHTML = ''; if(btn) btn.disabled = false; }
+}
+function ntLookup(){ ntCheckDup(); const o = findOrder($('nt_order').value); if(o) ntFill(o); else $('nt_msg').innerHTML = `<div class="note n-warn">Order not found in synced orders. You can still fill the details by hand. If the order is new, run the Shopify sync from the Google Sheet.</div>`; }
 function ntPhoneLookup(){
   const p = digits($('nt_phoneq').value).slice(-10); if(p.length<10){ $('nt_msg').innerHTML='<div class="note n-warn">Enter a 10-digit phone number.</div>'; return; }
   const list = (S.data.Orders||[]).filter(o => digits(o.Phone).slice(-10)===p).sort((a,b)=>a.Order_Date<b.Order_Date?1:-1);
@@ -815,6 +831,8 @@ async function createTicket(){
   busy(true);
   try{
     await loadTabs(['Tickets']);
+    const dup = openTicketsForOrder($('nt_order').value);
+    if(dup.length){ ntCheckDup(); renderComplaints(); toast(dupText(dup, $('nt_order').value), true); busy(false); return; }
     const id = nextId('Tickets','Ticket_ID','CT');
     const t = {
       Ticket_ID:id, Created_At:nowStr(), Created_By:S.email, Channel:$('nt_channel').value, Customer_Name:name, Phone:phone,
@@ -857,6 +875,13 @@ function fld(label, f, type='text', extra={}){
   else if(type==='check') return `<div class="${cls}"><label class="chk"><input type="checkbox" data-f="${f}"${rr}${dis} ${v==='Yes'?'checked':''} onchange="onField(this)"> ${esc(label)}</label></div>`;
   else input = `<input class="inp" type="${type}" data-f="${f}" value="${esc(type==='date'?String(v).slice(0,10):v)}"${rr}${dis} placeholder="${esc(extra.ph||'')}" ${extra.list?`list="${extra.list}"`:''} onchange="onField(this)">`;
   return `<div class="${cls}"><label>${esc(label)}</label>${input}</div>`;
+}
+function syncFormFromEdit(){
+  document.querySelectorAll('#drawer [data-f]').forEach(el => {
+    const v = S.edit[el.dataset.f] ?? '';
+    if(el.type==='checkbox') el.checked = v==='Yes';
+    else el.value = el.type==='date' ? String(v).slice(0,10) : v;
+  });
 }
 function collectForm(){
   if(!S.edit) return;
@@ -1063,6 +1088,18 @@ async function saveTicket(opts={}){
   const sys = systemNotesFor(o, t);
   busy(true);
   try{
+    if(t.Status!=='Closed' && normOrder(t.Order_No) && (normOrder(t.Order_No)!==normOrder(o.Order_No) || o.Status==='Closed')){
+      await loadTabs(['Tickets']);
+      const dup = openTicketsForOrder(t.Order_No, t.Ticket_ID);
+      if(dup.length){
+        const reopening = o.Status==='Closed', attempted = t.Order_No;
+        t.Status = o.Status; t.Closed_At = o.Closed_At || '';
+        if(!reopening) t.Order_No = o.Order_No;
+        renderComplaints(); renderDrawer();
+        toast(`${reopening ? "Can't reopen this ticket." : "Can't change the order number."} ${dupText(dup, attempted)}`, true);
+        busy(false); return false;
+      }
+    }
     try{ await saveRecord('Tickets', t); }
     catch(e){
       if(e instanceof Conflict){
@@ -1097,6 +1134,7 @@ async function closeTicket(){
   const openCases = ticketCases(t.Ticket_ID).filter(c=>c.Case_Status!=='Closed');
   const closeCases = openCases.length && confirm(`Also close ${openCases.length} open courier case(s) linked to this ticket?`);
   t.Status = 'Closed';
+  syncFormFromEdit();
   const ok = await saveTicket({silent:true});
   if(!ok) return;
   if(closeCases){
@@ -1107,7 +1145,7 @@ async function closeTicket(){
   }
   renderAll(); closeDrawer(true); toast(`${t.Ticket_ID} closed`);
 }
-async function reopenTicket(){ collectForm(); S.edit.Status='In Progress'; await saveTicket(); }
+async function reopenTicket(){ collectForm(); S.edit.Status='In Progress'; S.edit.Closed_At=''; syncFormFromEdit(); await saveTicket(); }
 async function deleteTicket(){
   if(!confirm(`Delete ${S.edit.Ticket_ID} permanently? Its notes stay in the sheet but the ticket row is removed.`)) return;
   busy(true);
