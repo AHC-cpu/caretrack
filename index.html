@@ -270,28 +270,28 @@ const SCHEMA = {
     'Issue_Type','Priority','Status','Assigned_To','Courier','AWB','Delivered_On','Courier_Outcome','Reship_Offered','Customer_Choice',
     'Reship_AWB','Follow_Up_Date','Return_Approved','Return_Window_Override','Product_Price','Pickup_Cost','Pickup_Decision','Pickup_AWB',
     'Item_Received','Item_Received_On','Refund_Amount','Refund_Status','Refund_Date','Refund_Mode','Refund_Ref','Resolution_Summary',
-    'Closed_At','Updated_At','Updated_By','Resolution_Type','Proof_Received'],
+    'Closed_At','Updated_At','Updated_By','Resolution_Type','Proof_Received','Payment_Type','RTO_Received','RTO_Received_On'],
   Ticket_Notes: ['Note_ID','Ticket_ID','Timestamp','By','Type','Note'],
   Courier_Cases: ['Case_ID','Ticket_ID','Courier','Case_Type','Order_No','AWB','Customer_Name','Phone','Pickup_Address','City','Pincode',
     'Our_Request','Raised_On','Raised_By','Case_Status','Closed_On','Courier_Status','Courier_Update','Courier_Ref','Expected_Date',
     'Courier_Updated_On','First_Response_On','Last_Pulled_Hash'],
   Orders: ['Order_ID','Order_No','Order_Date','Customer_Name','Phone','Email','Address','City','State','Pincode','Items','SKUs',
     'Order_Value','Payment_Type','Payment_Gateway','Financial_Status','Fulfillment_Status','Courier_Company','AWB','Tracking_URL',
-    'Shipment_Status','Shipped_On','Delivered_On','Cancelled_On','Shopify_Updated_At','Synced_At'],
+    'Shipment_Status','Shipped_On','Delivered_On','Cancelled_On','Shopify_Updated_At','Synced_At','Line_Items'],
   Templates: ['Template_ID','Name','Flow','Language','Body'],
   Couriers: ['Courier','Match_Keywords','Contact_Person','Email','Phone','Default_Pickup_Cost','Sheet_ID','Sheet_URL','Active'],
   Settings: ['Key','Value','Notes']
 };
 const ID_FIELD = {Tickets:'Ticket_ID',Ticket_Notes:'Note_ID',Courier_Cases:'Case_ID',Orders:'Order_ID',Templates:'Template_ID',Couriers:'Courier',Settings:'Key'};
 
-const ISSUE = {DELAY:'Not Received / Delay', DISLIKE:"Didn't Like Product", WRONG:'Wrong Product Sent', DAMAGE:'Damaged Product Received', OTHER:'Other'};
+const ISSUE = {DELAY:'Not Received / Delay', DISLIKE:"Didn't Like Product", WRONG:'Wrong Product Sent', DAMAGE:'Damaged Product Received', RTO:'RTO / Returned to Origin', OTHER:'Other'};
 const ISSUES = Object.values(ISSUE);
-const RESOLUTIONS = ['Refund','Partial refund','Replacement','Send correct product','Re-ship (lost parcel)','Coupon / store credit','Customer will wait','Delivered / no action','Rejected / no action'];
+const RESOLUTIONS = ['Refund','Partial refund','Replacement','Send correct product','Re-ship (lost parcel)','Re-ship (RTO)','Order cancelled (COD, no refund)','Coupon / store credit','Customer will wait','Delivered / no action','Rejected / no action'];
 const PENDING_GROUPS = ['Our action','Waiting on courier','Waiting on customer','Refund pending','Ready to close'];
 const STATUSES = ['New','In Progress','Waiting on Courier','Waiting on Customer','Resolved','Closed'];
 const CHANNELS = ['WhatsApp','Email','Instagram','Call','Other'];
 const PRIORITIES = ['Normal','High','Urgent'];
-const CASE_TYPES = ['Delay / Not Delivered','Reverse Pickup','Damage Claim'];
+const CASE_TYPES = ['Delay / Not Delivered','Reverse Pickup','Damage Claim','RTO Status'];
 const COURIER_STATUSES = ['','Investigating','In transit','Out for delivery','Delivered','Lost','RTO initiated','Pickup scheduled','Pickup done','Pickup failed','Claim accepted','Claim rejected','Other'];
 const OUTCOMES = ['','Courier checking','Delivered','Customer asked to wait','Parcel lost','RTO / Returned to us'];
 const REFUND_STATUS = ['','Not needed','Pending','Done'];
@@ -306,6 +306,7 @@ const DEFAULT_SETTINGS = [
   ['TICKET_RED_HOURS','48','Open ticket turns red after this many hours'],
   ['COURIER_NO_UPDATE_HOURS','48','Courier case turns red if no courier update for this many hours'],
   ['TEAM','','Comma separated team names, used for "Assigned to"'],
+  ['RTO_RED_DAYS','15','RTO ticket turns red if the parcel has not come back to us after this many days'],
   ['ORDER_SYNC_DAYS_BACK','60','First Shopify sync pulls orders from this many days back (Apps Script)'],
   ['LAST_ORDER_SYNC','','Written by Apps Script'],
   ['LAST_COURIER_SYNC','','Written by Apps Script']
@@ -350,6 +351,14 @@ const DAMAGE_TEMPLATES = [
  ['Damaged: refund processed',ISSUE.DAMAGE,'Hindi',"नमस्ते {{name}}, ऑर्डर {{order_no}} के खराब प्रोडक्ट के लिए ₹{{refund_amount}} का रिफंड कर दिया गया है। बैंक के अनुसार यह आमतौर पर 5-7 कार्य दिवसों में आपके खाते में आ जाता है। फिर से माफ़ी।\n\n{{signature}}"],
  ['Damaged: pickup arranged',ISSUE.DAMAGE,'English',"Hi {{name}}, we've arranged a pickup of the damaged item from order {{order_no}}. The courier will contact you in the next 2-3 working days. Please keep it packed and ready.\n\n{{signature}}"],
  ['Damaged: pickup arranged',ISSUE.DAMAGE,'Hindi',"नमस्ते {{name}}, ऑर्डर {{order_no}} के खराब प्रोडक्ट का पिकअप बुक कर दिया गया है। कूरियर अगले 2-3 कार्य दिवसों में आपसे संपर्क करेगा। कृपया प्रोडक्ट पैक करके तैयार रखें।\n\n{{signature}}"]
+];
+const RTO_TEMPLATES = [
+ ['RTO: refund processed',ISSUE.RTO,'English',"Hi {{name}}, your order {{order_no}} couldn't be delivered and is on its way back to us. We didn't want you to wait for it, so we've already refunded ₹{{refund_amount}}. It usually shows in your account within 5-7 working days.\n\n{{signature}}"],
+ ['RTO: refund processed',ISSUE.RTO,'Hindi',"नमस्ते {{name}}, आपका ऑर्डर {{order_no}} डिलीवर नहीं हो पाया और हमारे पास वापस आ रहा है। हम नहीं चाहते थे कि आपको इंतज़ार करना पड़े, इसलिए ₹{{refund_amount}} का रिफंड पहले ही कर दिया है। यह आमतौर पर 5-7 कार्य दिवसों में आपके खाते में आ जाता है।\n\n{{signature}}"],
+ ['RTO: send it again?',ISSUE.RTO,'English',"Hi {{name}}, the courier couldn't deliver your order {{order_no}} and it's being returned to us. Would you like us to send it again? Please confirm your full address with pincode and an alternate phone number. If you'd rather cancel, just tell us.\n\n{{signature}}"],
+ ['RTO: send it again?',ISSUE.RTO,'Hindi',"नमस्ते {{name}}, कूरियर आपका ऑर्डर {{order_no}} डिलीवर नहीं कर पाया और यह हमारे पास वापस आ रहा है। क्या आप चाहेंगे कि हम इसे दोबारा भेजें? कृपया पिनकोड सहित पूरा पता और एक दूसरा फोन नंबर भेज दें। अगर आप ऑर्डर कैंसल करना चाहते हैं तो हमें बता दें।\n\n{{signature}}"],
+ ['RTO: COD order cancelled',ISSUE.RTO,'English',"Hi {{name}}, the courier couldn't deliver your order {{order_no}}, so it's being returned to us and the order has been cancelled. As it was cash on delivery, no payment was taken from you. If you'd still like the product, just reply and we'll send it again.\n\n{{signature}}"],
+ ['RTO: COD order cancelled',ISSUE.RTO,'Hindi',"नमस्ते {{name}}, कूरियर आपका ऑर्डर {{order_no}} डिलीवर नहीं कर पाया, इसलिए यह हमारे पास वापस आ रहा है और ऑर्डर कैंसल हो गया है। यह कैश ऑन डिलीवरी ऑर्डर था, इसलिए आपसे कोई पेमेंट नहीं लिया गया। अगर आपको अब भी प्रोडक्ट चाहिए तो बस जवाब दें, हम दोबारा भेज देंगे।\n\n{{signature}}"]
 ];
 const TEMPLATE_VARS = ['name','order_no','ticket_id','product','awb','courier','tracking_link','expected_date','reship_awb','refund_amount','delivered_on','return_days','store','signature'];
 
@@ -540,11 +549,12 @@ async function seedDefaults(){
     await appendRecords('Templates', DEFAULT_TEMPLATES.map((t,i) => ({Template_ID:'TPL-'+String(i+1).padStart(3,'0'), Name:t[0], Flow:t[1], Language:t[2], Body:t[3]})));
     reload.push('Templates');
   }
-  if(!haveKeys.has('TEMPLATE_PACK_DAMAGE')){
+  for(const [key, pack, prefix, label] of [['TEMPLATE_PACK_DAMAGE', DAMAGE_TEMPLATES, 'TPL-D', 'Damage'], ['TEMPLATE_PACK_RTO', RTO_TEMPLATES, 'TPL-R', 'RTO']]){
+    if(haveKeys.has(key)) continue;
     const have = new Set((S.data.Templates||[]).map(t => t.Name+'|'+t.Language));
-    const add = DAMAGE_TEMPLATES.map((t,i) => ({Template_ID:'TPL-D'+String(i+1).padStart(2,'0'), Name:t[0], Flow:t[1], Language:t[2], Body:t[3]})).filter(t => !have.has(t.Name+'|'+t.Language));
+    const add = pack.map((t,i) => ({Template_ID:prefix+String(i+1).padStart(2,'0'), Name:t[0], Flow:t[1], Language:t[2], Body:t[3]})).filter(t => !have.has(t.Name+'|'+t.Language));
     if(add.length){ await appendRecords('Templates', add); reload.push('Templates'); }
-    await appendRecords('Settings', [{Key:'TEMPLATE_PACK_DAMAGE', Value:'added', Notes:'Damage reply templates were added once. Delete this row to add them again.'}]);
+    await appendRecords('Settings', [{Key:key, Value:'added', Notes:`${label} reply templates were added once. Delete this row to add them again.`}]);
     reload.push('Settings');
   }
   if(reload.length) await loadTabs([...new Set(reload)]);
@@ -599,6 +609,22 @@ function matchCourier(order){
   }
   return '';
 }
+/* ---------- Products in an order ---------- */
+function splitProducts(s){ return String(s||'').split(/\n|;\s+/).map(x=>x.trim()).filter(Boolean); }
+function productName(label){ return String(label).replace(/\s+x\d+$/i,'').trim(); }
+function productSummary(s){ const l = splitProducts(s); return l.length ? (l[0] + (l.length>1 ? ` +${l.length-1} more` : '')) : ''; }
+/* Each line: {label, qty, price (line total paid) or null}. Uses Line_Items (with prices) when synced, else falls back to the Items text. */
+function orderLines(o){
+  if(!o) return [];
+  try{
+    const arr = JSON.parse(o.Line_Items||'');
+    if(Array.isArray(arr) && arr.length) return arr.map(li => {
+      const q = Number(li.q)||1, u = num(li.u);
+      return {label: li.t + (li.v ? ` (${li.v})` : '') + ` x${q}`, qty:q, price: u==null ? null : Math.round(u*q*100)/100};
+    });
+  }catch(_){ }
+  return splitProducts(o.Items).map(l => ({label:l, qty:Number((l.match(/x(\d+)$/i)||[])[1])||1, price:null}));
+}
 /* One open ticket per order: a new ticket for an order is allowed only after its previous ticket is Closed. */
 function openTicketsForOrder(orderNo, excludeId){
   const n = normOrder(orderNo); if(!n) return [];
@@ -628,7 +654,7 @@ function statusPill(s){
   return `<span class="pill ${m[s]||'p-grey'}">${esc(s||'—')}</span>`;
 }
 function issuePill(s){
-  const m = {[ISSUE.DELAY]:'p-amber',[ISSUE.DISLIKE]:'p-purple',[ISSUE.WRONG]:'p-red',[ISSUE.DAMAGE]:'p-orange'};
+  const m = {[ISSUE.DELAY]:'p-amber',[ISSUE.DISLIKE]:'p-purple',[ISSUE.WRONG]:'p-red',[ISSUE.DAMAGE]:'p-orange',[ISSUE.RTO]:'p-blue'};
   return `<span class="pill ${m[s]||'p-grey'}">${esc(s||'—')}</span>`;
 }
 function caseStale(c){
@@ -637,6 +663,12 @@ function caseStale(c){
   return h!=null && h >= settingNum('COURIER_NO_UPDATE_HOURS',48);
 }
 function isOverdue(t){ return t.Status!=='Closed' && (hoursSince(t.Created_At)||0) >= settingNum('TICKET_RED_HOURS',48); }
+
+/* ---------- Payment type & RTO ---------- */
+function payType(t){ return t.Payment_Type || (findOrder(t.Order_No)||{}).Payment_Type || ''; }
+function isCOD(t){ return /^cod$/i.test(payType(t)); }
+function rtoDays(t){ return dayDiff(t.Created_At, nowStr()); }
+function rtoLate(t){ const d = rtoDays(t); return t.Issue_Type===ISSUE.RTO && t.RTO_Received!=='Yes' && d!=null && d >= settingNum('RTO_RED_DAYS',15); }
 
 /* ---------- Resolution (auto-filled from the flow, can be changed by hand) ---------- */
 function autoResolution(t){
@@ -650,6 +682,7 @@ function autoResolution(t){
       return '';
     case ISSUE.DISLIKE: return t.Return_Approved==='Yes' ? 'Refund' : t.Return_Approved==='No' ? 'Rejected / no action' : '';
     case ISSUE.WRONG: return c==='Refund' ? 'Refund' : c==='Send correct item' ? 'Send correct product' : '';
+    case ISSUE.RTO: return c && c.startsWith('Refund') ? 'Refund' : c==='Re-ship' ? 'Re-ship (RTO)' : c==='Cancel order (COD, no refund)' ? 'Order cancelled (COD, no refund)' : '';
     case ISSUE.DAMAGE: return ({'Replacement':'Replacement','Refund':'Refund','Partial refund':'Partial refund','Coupon / store credit':'Coupon / store credit'})[c] || '';
   }
   return '';
@@ -660,7 +693,7 @@ function applyAutoResolution(t, before){
 }
 function resolutionPill(r){
   if(!r) return '<span class="muted">—</span>';
-  const m = {'Refund':'p-orange','Partial refund':'p-orange','Replacement':'p-blue','Send correct product':'p-blue','Re-ship (lost parcel)':'p-blue','Coupon / store credit':'p-purple','Customer will wait':'p-amber'};
+  const m = {'Refund':'p-orange','Partial refund':'p-orange','Replacement':'p-blue','Send correct product':'p-blue','Re-ship (lost parcel)':'p-blue','Re-ship (RTO)':'p-blue','Coupon / store credit':'p-purple','Customer will wait':'p-amber'};
   return `<span class="pill ${m[r]||'p-grey'}">${esc(r)}</span>`;
 }
 
@@ -723,6 +756,19 @@ function pendingFor(t){
       if(t.Pickup_Decision==='Arrange pickup'){ const pf = pickupFlow(); if(pf) return pf; }
       return ready;
     }
+    case ISSUE.RTO: {
+      const cod = isCOD(t), ch = t.Customer_Choice||'', got = t.RTO_Received==='Yes';
+      const d = rtoDays(t), late = rtoLate(t);
+      const waitRto = prefix => P(`${prefix ? prefix+'waiting' : 'Waiting'} for RTO to reach us (${d} day${d===1?'':'s'})`, 'Waiting on courier', late);
+      if(!payType(t)) return P('Set payment type (COD / Prepaid)','Our action');
+      if(!ch) return P(cod ? 'Choose: re-ship or cancel' : 'Choose: refund now, refund later or re-ship','Our action');
+      if(cod && ch.startsWith('Refund')) return P('COD order: change resolution (no refund)','Our action',true);
+      if(ch==='Re-ship' && !t.Reship_AWB) return P('Send new parcel, enter AWB','Our action');
+      if(ch==='Refund now (before RTO reaches us)' && refundDue()) return refund();
+      if(ch==='Refund after RTO received'){ if(!got) return waitRto(''); if(refundDue()) return refund(); }
+      if(!got) return waitRto(ch.startsWith('Refund') ? 'Refunded, ' : ch==='Re-ship' ? 'Re-shipped, ' : ch.startsWith('Cancel') ? 'Cancelled, ' : '');
+      return ready;
+    }
     default: {
       const w = open.map(c=>waitCase(c.Case_Type)).find(Boolean); if(w) return w;
       if(t.Refund_Status==='Pending') return refund();
@@ -749,7 +795,9 @@ function renderComplaints(){
     ['Waiting on courier', open.filter(t=>t.Status==='Waiting on Courier').length, 'amber'],
     ['Follow-ups due today', open.filter(t=>t.Follow_Up_Date && t.Follow_Up_Date<=today()).length, 'amber'],
     ['Refunds pending', `${pendRef.length} · ${rupee(pendRef.reduce((a,t)=>a+(num(t.Refund_Amount)||0),0))||'₹0'}`, pendRef.length?'red':''],
-    ['Ready to close', open.filter(t=>pendingFor(t).group==='Ready to close').length, 'green']
+    ['Ready to close', open.filter(t=>pendingFor(t).group==='Ready to close').length, 'green'],
+    (()=>{ const r = T.filter(t=>t.Issue_Type===ISSUE.RTO && t.RTO_Received!=='Yes'); const paid = r.filter(t=>t.Refund_Status==='Done').reduce((a,t)=>a+(num(t.Refund_Amount)||0),0);
+       return ['RTO not yet received', `${r.length}${paid?' · '+rupee(paid)+' refunded':''}`, r.some(rtoLate)?'red':(r.length?'amber':'')]; })()
   ].map(k=>`<div class="kpi ${k[2]}"><div class="l">${esc(k[0])}</div><div class="v">${esc(k[1])}</div></div>`).join('');
 
   const q = $('cSearch').value.trim().toLowerCase(), st = $('cStatus').value, is = $('cIssue').value, ch = $('cChannel').value, co = $('cCourier').value, rs = $('cResolution').value, pd = $('cPending').value;
@@ -773,12 +821,13 @@ function renderComplaints(){
       const cs = ticketCases(t.Ticket_ID).filter(c=>c.Case_Status!=='Closed');
       const csTxt = cs.length ? cs.map(c => `<span class="pill ${caseStale(c)?'p-red':'p-amber'}">${esc(c.Courier)}: ${esc(c.Courier_Status||'no reply')}</span>`).join(' ') : '<span class="muted">—</span>';
       const ref = t.Refund_Status==='Pending' ? `<span class="pill p-red">Pending ${esc(rupee(t.Refund_Amount))}</span>` : t.Refund_Status==='Done' ? `<span class="pill p-green">Done ${esc(rupee(t.Refund_Amount))}</span>` : '<span class="muted">—</span>';
-      return `<tr class="click" onclick="openTicket('${esc(t.Ticket_ID)}')"><td class="b nowrap">${esc(t.Ticket_ID)}<div class="muted small">${esc(t.Channel)}</div></td><td>${ticketAgePill(t)}</td><td>${esc(t.Customer_Name)}<div class="muted small">${esc(t.Phone)}</div></td><td class="nowrap">${esc(t.Order_No)}<div class="muted small clip">${esc(t.Product)}</div></td><td>${issuePill(t.Issue_Type)}</td><td>${statusPill(t.Status)}</td><td>${resolutionPill(t.Resolution_Type)}</td><td>${pendingPill(t)}</td><td>${csTxt}</td><td>${esc(t.Assigned_To)}</td><td>${ref}</td></tr>`;
+      return `<tr class="click" onclick="openTicket('${esc(t.Ticket_ID)}')"><td class="b nowrap">${esc(t.Ticket_ID)}<div class="muted small">${esc(t.Channel)}</div></td><td>${ticketAgePill(t)}</td><td>${esc(t.Customer_Name)}<div class="muted small">${esc(t.Phone)}</div></td><td class="nowrap">${esc(t.Order_No)}<div class="muted small clip" title="${esc(splitProducts(t.Product).join('\n'))}">${esc(productSummary(t.Product))}</div></td><td>${issuePill(t.Issue_Type)}</td><td>${statusPill(t.Status)}</td><td>${resolutionPill(t.Resolution_Type)}</td><td>${pendingPill(t)}</td><td>${csTxt}</td><td>${esc(t.Assigned_To)}</td><td>${ref}</td></tr>`;
     }).join('')}</tbody></table>`;
 }
 
 /* ---------- New ticket ---------- */
 function openNewTicket(prefillOrderNo){
+  S.ntPrice = null; S.ntLines = [];
   const o = prefillOrderNo ? findOrder(prefillOrderNo) : null;
   modal('New complaint', `
     <div class="grid">
@@ -791,7 +840,8 @@ function openNewTicket(prefillOrderNo){
       <div class="f"><label>Customer name</label><input class="inp" id="nt_name"></div>
       <div class="f"><label>Phone</label><input class="inp" id="nt_phone"></div>
       <div class="f"><label>Email</label><input class="inp" id="nt_email"></div>
-      <div class="f"><label>Product</label><input class="inp" id="nt_product"></div>
+      <div class="full" id="nt_items"></div>
+      <div class="f full"><label>Product(s) this complaint is about</label><textarea class="inp" id="nt_product" style="min-height:52px" oninput="S.ntPrice=null"></textarea></div>
       <div class="f"><label>Order value (₹)</label><input class="inp" id="nt_value"></div>
       <div class="f"><label>Priority</label><select class="inp" id="nt_priority">${opts(PRIORITIES,'Normal')}</select></div>
       <div class="f"><label>Assigned to</label><input class="inp" id="nt_assign" list="teamList" value=""></div>
@@ -802,11 +852,26 @@ function openNewTicket(prefillOrderNo){
 }
 function ntFill(o){
   $('nt_order').value = o.Order_No||''; $('nt_name').value = o.Customer_Name||''; $('nt_phone').value = o.Phone||''; $('nt_email').value = o.Email||'';
-  $('nt_product').value = o.Items||''; $('nt_value').value = o.Order_Value||'';
+  $('nt_value').value = o.Order_Value||'';
+  S.ntLines = orderLines(o); S.ntOrderValue = o.Order_Value||'';
+  if(S.ntLines.length > 1){
+    $('nt_items').innerHTML = `<div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:3px;text-transform:uppercase;letter-spacing:.3px">This order has ${S.ntLines.length} products. Tick the one(s) with the problem</div>
+      <div style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:#fafcfe">${S.ntLines.map((l,i)=>`<label class="chk" style="font-weight:400;margin:5px 0"><input type="checkbox" data-li="${i}" onchange="ntItemsChanged()"> <span style="flex:1">${esc(l.label)}</span><span class="muted small nowrap" style="margin-left:10px">${l.price!=null?esc(rupee(l.price)):''}</span></label>`).join('')}</div>
+      <div class="small muted" style="margin-top:4px">If none are ticked, all products are added and the full order value is used as the product price.</div>`;
+  } else $('nt_items').innerHTML = '';
+  ntItemsChanged();
   const pr = isProblemOrder(o);
   $('nt_msg').innerHTML = `<div class="note n-ok">Order found: ${esc(o.Order_No)} · ${esc(o.Order_Date)} · ${esc(o.Payment_Type)} · ${esc(o.Courier_Company||'no courier yet')} ${esc(o.AWB||'')} · ${esc((o.Shipment_Status||o.Fulfillment_Status||'').replace(/_/g,' '))}</div>`
     + (pr ? `<div class="note n-warn">Problem order: ${esc(pr)}</div>` : '');
   ntCheckDup();
+}
+function ntItemsChanged(){
+  const lines = S.ntLines || [];
+  const ticked = [...document.querySelectorAll('#nt_items [data-li]')].filter(c=>c.checked).map(c=>lines[+c.dataset.li]);
+  const use = ticked.length ? ticked : lines;
+  $('nt_product').value = use.map(l=>l.label).join('\n');
+  // price of the affected items only (used for the pickup-vs-price suggestion); falls back to order value
+  S.ntPrice = (ticked.length || lines.length===1) && use.every(l=>l.price!=null) ? String(Math.round(use.reduce((a,l)=>a+l.price,0)*100)/100) : (S.ntOrderValue||null);
 }
 function ntCheckDup(){
   const box = $('nt_dup'), btn = $('nt_create'); if(!box) return;
@@ -839,7 +904,7 @@ async function createTicket(){
       Email:$('nt_email').value.trim(), Order_No:$('nt_order').value.trim(), Product:$('nt_product').value.trim(), Order_Value:$('nt_value').value.trim(),
       Issue_Type:$('nt_issue').value, Priority:$('nt_priority').value, Status:'New', Assigned_To:$('nt_assign').value.trim(),
       Courier: matchCourier(o), AWB: o?o.AWB:'', Delivered_On: o&&o.Delivered_On ? o.Delivered_On.slice(0,10) : '',
-      Product_Price: o?o.Order_Value:'', Updated_At:nowStr(), Updated_By:S.email
+      Product_Price: S.ntPrice!=null ? S.ntPrice : (o?o.Order_Value:''), Payment_Type: o ? (o.Payment_Type||'') : '', Updated_At:nowStr(), Updated_By:S.email
     };
     await appendRecords('Tickets', [t]);
     const notes = [{Note_ID:randId('N'), Ticket_ID:id, Timestamp:nowStr(), By:S.email, Type:'system', Note:`Ticket created (${t.Issue_Type}, via ${t.Channel})`}];
@@ -856,6 +921,7 @@ async function createTicket(){
 function openTicket(id){
   const t = (S.data.Tickets||[]).find(x => x.Ticket_ID===id); if(!t){ toast('Ticket not found', true); return; }
   S.edit = {...t}; S.editOrig = {...t};
+  if(!S.edit.Payment_Type){ const o = findOrder(t.Order_No); if(o && o.Payment_Type){ S.edit.Payment_Type = o.Payment_Type; S.editOrig.Payment_Type = o.Payment_Type; } }
   renderDrawer();
   $('drawer').classList.add('open'); $('drawerBack').style.display='block';
 }
@@ -892,6 +958,7 @@ function onField(el){
   collectForm();
   if(el.dataset.f!=='Resolution_Type') applyAutoResolution(S.edit, before);
   if(el.dataset.f==='Item_Received' && el.checked && !S.edit.Item_Received_On) S.edit.Item_Received_On = today();
+  if(el.dataset.f==='RTO_Received' && el.checked && !S.edit.RTO_Received_On) S.edit.RTO_Received_On = today();
   if(el.dataset.f==='Courier' && !S.edit.Pickup_Cost){ const c = courierRec(S.edit.Courier); if(c && c.Default_Pickup_Cost) S.edit.Pickup_Cost = c.Default_Pickup_Cost; }
   if(el.dataset.rr){ const sc = document.querySelector('#drawer .dbody'); const top = sc?sc.scrollTop:0; renderDrawer(); const sc2 = document.querySelector('#drawer .dbody'); if(sc2) sc2.scrollTop = top; }
 }
@@ -916,6 +983,7 @@ function flowHTML(t){
     const shippedDays = o && o.Shipped_On ? dayDiff(o.Shipped_On, nowStr()) : null;
     const lost = /lost|RTO/i.test(t.Courier_Outcome);
     let h = stepsHTML([['Complaint logged',true],['Courier case raised',delayCases.length>0],['Courier replied',delayCases.some(c=>c.Courier_Status||c.Courier_Update)],['Outcome decided',!!t.Courier_Outcome&&t.Courier_Outcome!=='Courier checking'],['Closed',closed]]);
+    if(delayCases.some(c=>/rto/i.test((c.Courier_Status||'')+' '+(c.Courier_Update||'')))) h += `<div class="note n-warn">The courier says this parcel is going back (RTO). Change Issue type above to "${ISSUE.RTO}" to handle the refund or re-ship.</div>`;
     if(shippedDays!=null){
       const lim = settingNum('DELAY_DAYS',7);
       h += `<div class="note ${shippedDays>=lim?'n-warn':'n-info'}">Shipped ${shippedDays} day(s) ago${o.Shipment_Status?' · Shopify status: '+esc(o.Shipment_Status.replace(/_/g,' ').toLowerCase()):''}. Delay limit is ${lim} days${shippedDays<lim?', so this may still be within normal transit time.':'.'}</div>`;
@@ -969,6 +1037,30 @@ function flowHTML(t){
     }
     return h;
   }
+  if(t.Issue_Type===ISSUE.RTO){
+    const cod = isCOD(t), pt = payType(t), ch = t.Customer_Choice || '', got = t.RTO_Received==='Yes';
+    const rtoCases = cases.filter(c=>c.Case_Type==='RTO Status');
+    const d = rtoDays(t), lim = settingNum('RTO_RED_DAYS',15);
+    const choices = cod ? ['','Re-ship','Cancel order (COD, no refund)'] : ['','Refund now (before RTO reaches us)','Refund after RTO received','Re-ship'];
+    const doneLabel = ch==='Re-ship' ? 'New parcel sent' : cod ? 'Order cancelled' : 'Refund done';
+    const doneOk = ch==='Re-ship' ? !!t.Reship_AWB : cod ? ch.startsWith('Cancel') : t.Refund_Status==='Done';
+    let h = stepsHTML([['Complaint logged',true],['Resolution chosen',!!ch],[doneLabel,doneOk],['RTO received back',got],['Closed',closed]]);
+    if(!pt) h += `<div class="note n-warn">Payment type is not known. Set COD or Prepaid under "Customer &amp; order" above.</div>`;
+    else h += cod ? `<div class="note n-info">COD order: the customer hasn't paid, so there is no refund. Re-ship or cancel.</div>`
+                  : `<div class="note n-info">Prepaid order: you can refund now without waiting for the parcel to come back.</div>`;
+    if(cod && ch.startsWith('Refund')) h += `<div class="note n-bad">This is a COD order. Change the resolution, refunds aren't allowed.</div>`;
+    if(got) h += `<div class="note n-ok">RTO received back${t.RTO_Received_On?' on '+esc(t.RTO_Received_On):''}.</div>`;
+    else if(d!=null) h += `<div class="note ${d>=lim?'n-bad':'n-warn'}">RTO not back yet: ${d} day(s) since this ticket was opened${d>=lim?`. That's past the ${lim}-day limit, so chase the courier.`:` (alert at ${lim} days).`}</div>`;
+    h += `<div style="margin-bottom:10px"><button class="btn sm" onclick="openCaseModal('RTO Status')">${rtoCases.length?'Ask courier again for RTO status':'Ask courier for RTO status'}</button></div>`;
+    h += `<div class="grid">${fld('Re-ship offered to customer (optional)','Reship_Offered','check',{rr:1,full:1})}`;
+    h += fld('Resolution for customer','Customer_Choice','select',{options: choices.includes(ch) ? choices : choices.concat([ch]), rr:1});
+    if(ch==='Re-ship') h += fld('New parcel AWB','Reship_AWB');
+    h += `</div>`;
+    if(ch==='Refund now (before RTO reaches us)' && !cod) h += `<div class="note n-info">Fill the refund section below. Keep this ticket open until the RTO reaches you.</div>`;
+    if(ch==='Refund after RTO received' && !cod) h += `<div class="note n-info">The refund section unlocks once you tick "RTO received back" below.</div>`;
+    h += `<div class="grid" style="margin-top:10px">${fld('RTO received back at our end','RTO_Received','check',{rr:1})}${got?fld('Received on','RTO_Received_On','date'):''}</div>`;
+    return h;
+  }
   if(t.Issue_Type===ISSUE.DAMAGE){
     const price = num(t.Product_Price), cost = num(t.Pickup_Cost);
     const claimCases = cases.filter(c=>c.Case_Type==='Damage Claim');
@@ -999,7 +1091,10 @@ function renderDrawer(){
   const t = S.edit; if(!t) return;
   const cases = ticketCases(t.Ticket_ID), notes = ticketNotes(t.Ticket_ID);
   const o = findOrder(t.Order_No);
-  const refundLocked = t.Issue_Type===ISSUE.DISLIKE && t.Item_Received!=='Yes';
+  const refundLockMsg = t.Issue_Type===ISSUE.DISLIKE && t.Item_Received!=='Yes' ? 'Refund unlocks once the item is marked "received back" above.'
+    : t.Issue_Type===ISSUE.RTO && isCOD(t) ? "COD order: the customer hasn't paid, so there is no refund."
+    : t.Issue_Type===ISSUE.RTO && t.Customer_Choice==='Refund after RTO received' && t.RTO_Received!=='Yes' ? 'Refund unlocks once the RTO is marked "received back" above.' : '';
+  const refundLocked = !!refundLockMsg;
   const cList = [''].concat(couriersList());
   const trk = o && o.Tracking_URL ? ` · <a href="${esc(o.Tracking_URL)}" target="_blank" rel="noopener">Track parcel ↗</a>` : '';
   $('drawer').innerHTML = `
@@ -1017,15 +1112,16 @@ function renderDrawer(){
 
     <div class="sec"><h4>Customer &amp; order ${o?`<span class="small muted" style="font-weight:400">${esc(o.Payment_Type)} · ${esc(o.Order_Date)}${trk}</span>`:''}</h4><div class="in grid">
       ${fld('Customer name','Customer_Name')}${fld('Phone','Phone')}${fld('Email','Email')}${fld('Order no.','Order_No')}
-      ${fld('Product','Product','text',{full:1})}${fld('Order value (₹)','Order_Value')}
-      ${fld('Courier','Courier','select',{options: cList.includes(t.Courier)?cList:cList.concat([t.Courier]), rr:1})}${fld('AWB','AWB')}${fld('Delivered on','Delivered_On','date',{rr:1})}
+      ${fld('Product(s) in this complaint','Product','textarea',{full:1})}${fld('Order value (₹)','Order_Value')}
+      ${fld('Courier','Courier','select',{options: cList.includes(t.Courier)?cList:cList.concat([t.Courier]), rr:1})}${fld('AWB','AWB')}${fld('Delivered on','Delivered_On','date',{rr:1})}${fld('Payment type','Payment_Type','select',{options:['','Prepaid','COD'].concat(t.Payment_Type && !['Prepaid','COD'].includes(t.Payment_Type)?[t.Payment_Type]:[]),rr:1})}
+      ${o && orderLines(o).length>1 ? `<div class="full small"><span class="muted">All products in this order:</span><br>${orderLines(o).map(l=>`${esc(l.label)}${l.price!=null?` <span class="muted">· ${esc(rupee(l.price))}</span>`:''}`).join('<br>')}</div>` : ''}
       ${o?`<div class="full small muted">Ship to: ${esc([o.Address,o.City,o.State,o.Pincode].filter(Boolean).join(', '))}${o.Courier_Company?` · Shopify courier: ${esc(o.Courier_Company)}`:''}</div>`:''}
     </div></div>
 
     <div class="sec"><h4>Resolution steps</h4><div class="in">${flowHTML(t)}</div></div>
 
     <div class="sec"><h4>Refund</h4><div class="in">
-      ${refundLocked?`<div class="note n-warn">Refund unlocks once the item is marked "received back" above.</div>`:''}
+      ${refundLocked?`<div class="note n-warn">${esc(refundLockMsg)}</div>`:''}
       <div class="grid">
         ${fld('Refund status','Refund_Status','select',{options:REFUND_STATUS,disabled:refundLocked})}
         ${fld('Refund amount (₹)','Refund_Amount','text',{disabled:refundLocked})}
@@ -1071,14 +1167,21 @@ function systemNotesFor(o, t){
   if(o.Refund_Status!==t.Refund_Status && t.Refund_Status) add(`Refund ${t.Refund_Status.toLowerCase()}${t.Refund_Amount?' ('+rupee(t.Refund_Amount)+')':''}`);
   if(o.Reship_AWB!==t.Reship_AWB && t.Reship_AWB) add(`New parcel sent, AWB ${t.Reship_AWB}`);
   if(o.Proof_Received!==t.Proof_Received && t.Proof_Received==='Yes') add('Photos / video proof received');
+  if(o.RTO_Received!==t.RTO_Received && t.RTO_Received==='Yes') add(`RTO received back on ${t.RTO_Received_On||today()}`);
+  if(o.Payment_Type!==t.Payment_Type && t.Payment_Type && o.Payment_Type) add(`Payment type changed to ${t.Payment_Type}`);
   if(o.Resolution_Type!==t.Resolution_Type && t.Resolution_Type) add(`Resolution: ${t.Resolution_Type}`);
   return out;
 }
 async function saveTicket(opts={}){
   collectForm();
   const t = S.edit, o = S.editOrig || {};
+  if(t.Issue_Type===ISSUE.RTO && isCOD(t) && /^refund/i.test(t.Customer_Choice||'')){ toast('This is a COD order, so a refund is not allowed. Choose Re-ship or Cancel order.', true); return false; }
+  if(t.Issue_Type===ISSUE.RTO && isCOD(t) && t.Refund_Status==='Pending') t.Refund_Status = '';
+  if(t.Issue_Type===ISSUE.RTO && t.Customer_Choice==='Refund after RTO received' && t.RTO_Received!=='Yes' && t.Refund_Status==='Done'){ toast('Refund can be marked Done only after the RTO is received back.', true); return false; }
+  if(t.RTO_Received==='Yes' && !t.RTO_Received_On) t.RTO_Received_On = today();
   if(t.Issue_Type===ISSUE.DISLIKE && t.Item_Received!=='Yes' && t.Refund_Status==='Done'){ toast('Refund can be marked Done only after the item is received back.', true); return false; }
-  if(/refund|coupon/i.test(t.Customer_Choice||'') && !t.Refund_Status) t.Refund_Status = 'Pending';
+  if(/^(refund|partial refund|coupon)/i.test(t.Customer_Choice||'') && !t.Refund_Status) t.Refund_Status = 'Pending';
+  if(t.Issue_Type===ISSUE.RTO && isCOD(t) && t.Refund_Status==='Pending') t.Refund_Status = '';
   applyAutoResolution(t, o);
   if(t.Issue_Type===ISSUE.DISLIKE && t.Item_Received==='Yes' && !t.Refund_Status) t.Refund_Status = 'Pending';
   if(t.Refund_Status==='Done' && !t.Refund_Date) t.Refund_Date = today();
@@ -1130,6 +1233,7 @@ async function closeTicket(){
   collectForm();
   const t = S.edit;
   if(t.Refund_Status==='Pending' && !confirm('Refund is still marked Pending. Close the ticket anyway?')) return;
+  if(t.Issue_Type===ISSUE.RTO && t.RTO_Received!=='Yes' && !confirm('The RTO parcel is not marked as received back yet. Close the ticket anyway?')) return;
   if(!t.Resolution_Summary){ const s = prompt('Short resolution summary (what was done)?',''); if(s===null) return; t.Resolution_Summary = s; }
   const openCases = ticketCases(t.Ticket_ID).filter(c=>c.Case_Status!=='Closed');
   const closeCases = openCases.length && confirm(`Also close ${openCases.length} open courier case(s) linked to this ticket?`);
@@ -1162,10 +1266,11 @@ async function openCaseModal(type){
   const pickup = type==='Reverse Pickup';
   const defReq = pickup
     ? (t.Issue_Type===ISSUE.DAMAGE ? 'Customer received a damaged item. Please arrange a reverse pickup from the customer address and share the pickup AWB.' : t.Issue_Type===ISSUE.WRONG ? 'Wrong item was delivered. Please arrange a reverse pickup from the customer address and share the pickup AWB.' : 'Customer wants to return the product. Please arrange a reverse pickup and share the pickup AWB.')
+    : type==='RTO Status' ? 'This shipment is going back to us (RTO). Please share the current RTO status and the date it will reach our warehouse.'
     : type==='Damage Claim' ? 'This shipment reached the customer damaged. Please register a damage claim. We can share photos of the product and packaging.'
     : 'Customer says the parcel has not been received. Please check the status urgently and share POD or expected delivery date.';
   const cr = courierRec(t.Courier);
-  modal(pickup?'Request reverse pickup':type==='Damage Claim'?'Raise damage claim with courier':'Raise delay case with courier', `
+  modal(pickup?'Request reverse pickup':type==='Damage Claim'?'Raise damage claim with courier':type==='RTO Status'?'Ask courier for RTO status':'Raise delay case with courier', `
     ${t.Courier && cr && !cr.Sheet_ID ? `<div class="note n-warn">${esc(t.Courier)} has no shared sheet yet. The case is still saved here. Create the courier sheets from the Google Sheet menu (CareTrack → Create missing courier sheets) or send them the Excel export.</div>`:''}
     <div class="grid">
       <div class="f"><label>Courier partner</label><select class="inp" id="cm_courier">${opts([''].concat(couriersList()), t.Courier)}</select></div>
@@ -1327,7 +1432,7 @@ function openOrder(no){
       <div><div class="muted">Ship to</div>${esc([o.Address,o.City,o.State,o.Pincode].filter(Boolean).join(', '))}</div>
       <div><div class="muted">Order</div>${esc(o.Order_Date)} · ${esc(rupee(o.Order_Value))}<br>${esc(o.Payment_Type)} (${esc(o.Payment_Gateway)}) · ${esc(o.Financial_Status)}</div>
       <div><div class="muted">Shipping</div>${esc(o.Courier_Company||'—')} · ${esc(o.AWB||'no AWB')}<br>Status: ${esc((o.Shipment_Status||o.Fulfillment_Status||'').replace(/_/g,' ').toLowerCase())}<br>Shipped ${esc(o.Shipped_On||'—')} · Delivered ${esc(o.Delivered_On||'—')}${o.Tracking_URL?`<br><a href="${esc(o.Tracking_URL)}" target="_blank" rel="noopener">Open tracking ↗</a>`:''}</div>
-      <div class="full"><div class="muted">Items</div>${esc(o.Items)}</div>
+      <div class="full"><div class="muted">Items (${orderLines(o).length})</div>${orderLines(o).map(l=>`${esc(l.label)}${l.price!=null?` <span class="muted">· ${esc(rupee(l.price))}</span>`:''}`).join('<br>')}</div>
       <div class="full"><div class="muted">Tickets for this order</div>${tk.length?tk.map(t=>`<button class="btn sm" onclick="closeModal();openTicket('${esc(t.Ticket_ID)}')">${esc(t.Ticket_ID)} · ${esc(t.Status)}</button>`).join(' '):'None'}</div>
     </div>`,
     `<button class="btn" onclick="closeModal()">Close</button><button class="btn primary" onclick="closeModal();openNewTicket('${esc(o.Order_No)}')">Raise complaint</button>`);
@@ -1377,7 +1482,7 @@ function templateVars(t){
   const o = findOrder(t.Order_No);
   const cs = ticketCases(t.Ticket_ID).filter(c=>c.Expected_Date).sort((a,b)=>a.Courier_Updated_On<b.Courier_Updated_On?1:-1);
   return {
-    name: (t.Customer_Name||'').trim(), order_no: t.Order_No, ticket_id: t.Ticket_ID, product: t.Product, awb: t.AWB, courier: t.Courier,
+    name: (t.Customer_Name||'').trim(), order_no: t.Order_No, ticket_id: t.Ticket_ID, product: splitProducts(t.Product).join(', '), awb: t.AWB, courier: t.Courier,
     tracking_link: o ? o.Tracking_URL : '', expected_date: cs[0] ? cs[0].Expected_Date : '', reship_awb: t.Reship_AWB,
     refund_amount: t.Refund_Amount, delivered_on: t.Delivered_On, return_days: setting('RETURN_WINDOW_DAYS','2'),
     store: setting('STORE_NAME','Zikku'), signature: setting('SIGNATURE','Team Zikku')
@@ -1448,9 +1553,11 @@ function renderDashboard(){
   $('dGrid').innerHTML =
     bars('Complaints by issue type', countBy(T, t=>t.Issue_Type)) +
     bars('Complaints by resolution', countBy(T, t=>t.Resolution_Type||'Not set')) +
+    bars('RTOs by courier', countBy(T.filter(t=>t.Issue_Type===ISSUE.RTO), t=>t.Courier||'Not set')) +
+    bars('RTO status', countBy(T.filter(t=>t.Issue_Type===ISSUE.RTO), t=> t.RTO_Received==='Yes' ? (t.Refund_Status==='Done' && t.Refund_Date && t.RTO_Received_On && t.Refund_Date < t.RTO_Received_On ? 'Received (refunded early)' : 'Received back') : (t.Refund_Status==='Done' ? 'Refunded, not back yet' : 'Not back yet'))) +
     bars('Open tickets by pending step (right now)', countBy((S.data.Tickets||[]).filter(t=>t.Status!=='Closed'), t=>pendingFor(t).group)) +
     bars('Complaints by courier', countBy(T, t=>t.Courier||'Not set')) +
-    bars('Complaints by product (top 10)', countBy(T, t=>t.Product||'Not set').slice(0,10)) +
+    bars('Complaints by product (top 10)', (()=>{ const m={}; T.forEach(t=>{ const ps=[...new Set(splitProducts(t.Product).map(productName))]; (ps.length?ps:['Not set']).forEach(n=>m[n]=(m[n]||0)+1); }); return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,10); })()) +
     bars('Complaints by channel', countBy(T, t=>t.Channel)) +
     crCard +
     bars('Delay complaints by courier', countBy(T.filter(t=>t.Issue_Type===ISSUE.DELAY), t=>t.Courier||'Not set')) +
